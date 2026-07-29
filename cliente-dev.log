@@ -1,0 +1,15 @@
+
+> cliente@0.1.0 dev C:\GITHUB\gestor-servicos\apps\cliente
+> next dev --port 3000
+
+   ▲ Next.js 15.5.22
+   - Local:        http://localhost:3000
+   - Network:      http://10.0.19.43:3000
+
+ ✓ Starting...
+ ✓ Ready in 8.2s
+ ○ Compiling / ...
+ ✓ Compiled / in 8.5s (575 modules)
+ GET / 200 in 9989ms
+ GET / 200 in 218ms
+ GET / 200 in 100ms
