@@ -1,4 +1,5 @@
 import { clsx } from "clsx";
+import { forwardRef } from "react";
 import type { ButtonHTMLAttributes, InputHTMLAttributes, PropsWithChildren, ReactNode } from "react";
 
 export type ButtonVariant = "primary" | "secondary" | "danger";
@@ -26,17 +27,20 @@ export function Button({
   );
 }
 
-export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
-  return (
-    <input
-      className={clsx(
-        "h-10 w-full rounded-md border border-stone-300 bg-white px-3 text-sm outline-none transition focus:border-teal-700 focus:ring-2 focus:ring-teal-100",
-        className,
-      )}
-      {...props}
-    />
-  );
-}
+export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(
+  function Input({ className, ...props }, ref) {
+    return (
+      <input
+        ref={ref}
+        className={clsx(
+          "h-10 w-full rounded-md border border-stone-300 bg-white px-3 text-sm outline-none transition focus:border-teal-700 focus:ring-2 focus:ring-teal-100",
+          className,
+        )}
+        {...props}
+      />
+    );
+  },
+);
 
 export function Panel({ children, title, aside }: PropsWithChildren<{ title: string; aside?: ReactNode }>) {
   return (

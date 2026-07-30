@@ -6,11 +6,44 @@ import {
   confirmarReservaPorToken,
   createServiceRoleClient,
   criarReserva,
+  getReservaByToken,
   reagendarReservaPorToken,
+  type ReservaEstado,
 } from "@gestor/database";
 import type { Slot } from "@gestor/utils";
 import { getSlotsDisponiveis } from "./lib/booking-data";
 import { enviarPush } from "./lib/push";
+
+export type ReservaView = {
+  token: string;
+  servicoId: string;
+  servicoNome: string;
+  data: string;
+  horaInicio: string;
+  horaFim: string;
+  nomeCliente: string;
+  estado: ReservaEstado;
+  confirmadoPeloCliente: boolean;
+};
+
+/** Estado atual da reserva, para atualização silenciosa (sem navegar/recarregar a página). */
+export async function getReservaViewAction(token: string): Promise<ReservaView | null> {
+  const reserva = await getReservaByToken(createServiceRoleClient(), token);
+  if (!reserva) {
+    return null;
+  }
+  return {
+    token,
+    servicoId: reserva.servico_id,
+    servicoNome: reserva.servico?.nome ?? "Serviço",
+    data: reserva.data,
+    horaInicio: reserva.hora_inicio.slice(0, 5),
+    horaFim: reserva.hora_fim.slice(0, 5),
+    nomeCliente: reserva.nome_cliente,
+    estado: reserva.estado,
+    confirmadoPeloCliente: reserva.confirmado_pelo_cliente,
+  };
+}
 
 export async function getSlotsAction(servicoId: string, dia: string): Promise<Slot[]> {
   if (!servicoId || !dia) {

@@ -1,5 +1,6 @@
 import { dateKey } from "@gestor/utils";
-import { fetchReservasPorData } from "../../lib/admin-data";
+import { fetchReservasIntervalo, mapReservaAgenda } from "../../lib/admin-data";
+import { calcularIntervalo, type Vista } from "./calendar-range";
 import { CalendarioClient } from "./calendario-client";
 
 export const dynamic = "force-dynamic";
@@ -7,24 +8,16 @@ export const dynamic = "force-dynamic";
 export default async function CalendarioPage({
   searchParams,
 }: {
-  searchParams: Promise<{ d?: string }>;
+  searchParams: Promise<{ d?: string; v?: string }>;
 }) {
-  const { d } = await searchParams;
+  const { d, v } = await searchParams;
   const dia = d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : dateKey(new Date());
-  const reservas = await fetchReservasPorData(dia);
+  const vista: Vista = v === "semana" || v === "mes" ? v : "dia";
+
+  const { from, to } = calcularIntervalo(dia, vista);
+  const reservas = await fetchReservasIntervalo(from, to);
 
   return (
-    <CalendarioClient
-      dia={dia}
-      reservas={reservas.map((reserva) => ({
-        id: reserva.id,
-        horaInicio: reserva.hora_inicio.slice(0, 5),
-        horaFim: reserva.hora_fim.slice(0, 5),
-        nomeCliente: reserva.nome_cliente,
-        telefoneCliente: reserva.telefone_cliente,
-        servicoNome: reserva.servico?.nome ?? "Serviço",
-        estado: reserva.estado,
-      }))}
-    />
+    <CalendarioClient diaInicial={dia} vistaInicial={vista} reservasIniciais={reservas.map(mapReservaAgenda)} />
   );
 }

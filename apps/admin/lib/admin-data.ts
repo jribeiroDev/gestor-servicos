@@ -3,6 +3,7 @@ import {
   getConfigNotificacao,
   listBloqueios,
   listHorarios,
+  listReservasIntervalo,
   listReservasPorData,
   listReservasTodas,
   listServicos,
@@ -10,8 +11,33 @@ import {
   type ConfiguracaoNotificacao,
   type HorarioFuncionamento,
   type ReservaComServico,
+  type ReservaEstado,
   type Servico,
 } from "@gestor/database";
+
+export type ReservaAgendaView = {
+  id: string;
+  data: string;
+  horaInicio: string;
+  horaFim: string;
+  nomeCliente: string;
+  telefoneCliente: string;
+  servicoNome: string;
+  estado: ReservaEstado;
+};
+
+export function mapReservaAgenda(reserva: ReservaComServico): ReservaAgendaView {
+  return {
+    id: reserva.id,
+    data: reserva.data,
+    horaInicio: reserva.hora_inicio.slice(0, 5),
+    horaFim: reserva.hora_fim.slice(0, 5),
+    nomeCliente: reserva.nome_cliente,
+    telefoneCliente: reserva.telefone_cliente,
+    servicoNome: reserva.servico?.nome ?? "Serviço",
+    estado: reserva.estado,
+  };
+}
 
 export async function fetchServicos(): Promise<Servico[]> {
   return listServicos(createServiceRoleClient());
@@ -19,6 +45,10 @@ export async function fetchServicos(): Promise<Servico[]> {
 
 export async function fetchReservasPorData(data: string): Promise<ReservaComServico[]> {
   return listReservasPorData(createServiceRoleClient(), data);
+}
+
+export async function fetchReservasIntervalo(from: string, to: string): Promise<ReservaComServico[]> {
+  return listReservasIntervalo(createServiceRoleClient(), from, to);
 }
 
 export async function fetchConfigNotificacao(): Promise<ConfiguracaoNotificacao> {

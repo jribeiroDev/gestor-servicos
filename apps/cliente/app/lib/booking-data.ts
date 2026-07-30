@@ -47,6 +47,7 @@ export async function getSlotsDisponiveis(servicoId: string, dia: string): Promi
     blocks: bloqueios.map((bloqueio) => ({
       startsAt: bloqueio.data_inicio,
       endsAt: bloqueio.data_fim,
+      motivo: bloqueio.motivo,
     })),
   });
 }

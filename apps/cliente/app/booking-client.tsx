@@ -2,12 +2,16 @@
 
 import { Button, Input } from "@gestor/ui";
 import type { Servico } from "@gestor/database";
-import { dateKey, type Slot } from "@gestor/utils";
-import { CalendarDays, Check, ChevronLeft, ChevronRight, Clock, Tag } from "lucide-react";
+import { addDays, dateKey, generateMonthGrid, startOfWeek, type Slot } from "@gestor/utils";
+import { Ban, CalendarDays, Check, ChevronLeft, ChevronRight, Clock, RefreshCw, Tag } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { criarReservaAction, getSlotsAction } from "./actions";
 import { NotificacoesButton } from "./notificacoes-button";
+
+type Vista = "dia" | "semana" | "mes";
+
+const DIAS_CURTO_SEG = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 
 function formatarPreco(preco: number | null): string {
   if (preco === null) {
@@ -20,6 +24,7 @@ export function BookingClient({ servicos }: { servicos: Servico[] }) {
   const router = useRouter();
   const [serviceId, setServiceId] = useState(servicos[0]?.id ?? "");
   const [date, setDate] = useState(() => new Date());
+  const [vista, setVista] = useState<Vista>("dia");
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [slots, setSlots] = useState<Slot[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
@@ -58,12 +63,66 @@ export function BookingClient({ servicos }: { servicos: Servico[] }) {
     };
   }, [serviceId, date]);
 
-  const shiftDay = (days: number) => {
-    const next = new Date(date);
-    next.setDate(date.getDate() + days);
-    setDate(next);
+  const selecionarDia = (novaData: Date) => {
+    setDate(novaData);
     setSelectedSlot(null);
   };
+
+  const shift = (delta: number) => {
+    const next = new Date(date);
+    if (vista === "dia") {
+      next.setDate(date.getDate() + delta);
+    } else if (vista === "semana") {
+      next.setDate(date.getDate() + delta * 7);
+    } else {
+      next.setMonth(date.getMonth() + delta, 1);
+    }
+    selecionarDia(next);
+  };
+
+  const titulo = useMemo(() => {
+    if (vista === "dia") {
+      return date.toLocaleDateString("pt-PT", { weekday: "long", day: "2-digit", month: "long" });
+    }
+    if (vista === "semana") {
+      const inicio = startOfWeek(date);
+      const fim = addDays(inicio, 6);
+      const fmtInicio = inicio.toLocaleDateString("pt-PT", { day: "2-digit", month: "short" });
+      const fmtFim = fim.toLocaleDateString("pt-PT", { day: "2-digit", month: "short", year: "numeric" });
+      return `${fmtInicio} – ${fmtFim}`;
+    }
+    return date.toLocaleDateString("pt-PT", { month: "long", year: "numeric" });
+  }, [date, vista]);
+
+  const diasSemana = useMemo(() => {
+    const inicio = startOfWeek(date);
+    return Array.from({ length: 7 }, (_, i) => addDays(inicio, i));
+  }, [date]);
+
+  // Motivos dos bloqueios que afetam o dia, com o intervalo de horas coberto.
+  const motivosBloqueio = useMemo(() => {
+    const mapa = new Map<string, { inicio: string; fim: string }>();
+    for (const slot of slots) {
+      if (!slot.blockedReason) {
+        continue;
+      }
+      const atual = mapa.get(slot.blockedReason);
+      if (!atual) {
+        mapa.set(slot.blockedReason, { inicio: slot.startsAt, fim: slot.endsAt });
+      } else {
+        if (slot.startsAt < atual.inicio) atual.inicio = slot.startsAt;
+        if (slot.endsAt > atual.fim) atual.fim = slot.endsAt;
+      }
+    }
+    return [...mapa.entries()].map(([motivo, { inicio, fim }]) => ({
+      motivo,
+      horas: `${inicio}–${fim}`,
+    }));
+  }, [slots]);
+
+  const grelhaMes = useMemo(() => generateMonthGrid(date), [date]);
+  const hojeKey = dateKey(new Date());
+  const diaSelecionadoKey = dateKey(date);
 
   const submeter = () => {
     if (!selectedService || !selectedSlot) {
@@ -141,36 +200,163 @@ export function BookingClient({ servicos }: { servicos: Servico[] }) {
 
       <section className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
         <div className="rounded-lg border border-stone-200 bg-white p-5">
+          <div className="mb-4 flex justify-end">
+            <div className="inline-flex rounded-md border border-stone-300 p-0.5 text-xs">
+              {(["dia", "semana", "mes"] as const).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setVista(v)}
+                  className={`rounded px-2.5 py-1 capitalize transition ${
+                    vista === v ? "bg-stone-900 text-white" : "text-stone-600 hover:bg-stone-100"
+                  }`}
+                >
+                  {v === "mes" ? "Mês" : v}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="mb-5 flex items-center justify-between">
-            <button aria-label="Dia anterior" onClick={() => shiftDay(-1)} className="rounded-md border border-stone-300 p-2">
+            <button aria-label="Anterior" onClick={() => shift(-1)} className="rounded-md border border-stone-300 p-2">
               <ChevronLeft size={18} />
             </button>
             <div className="text-center">
-              <p className="text-sm text-stone-500">Data</p>
-              <h2 className="text-xl font-semibold capitalize text-stone-950">
-                {date.toLocaleDateString("pt-PT", { weekday: "long", day: "2-digit", month: "long" })}
-              </h2>
+              <p className="flex items-center justify-center gap-1.5 text-sm text-stone-500">
+                {vista === "dia" ? "Data" : vista === "semana" ? "Semana" : "Mês"}
+                {vista === "dia" && loadingSlots && slots.length > 0 ? (
+                  <RefreshCw size={12} className="animate-spin text-stone-400" />
+                ) : null}
+              </p>
+              <h2 className="text-xl font-semibold capitalize text-stone-950">{titulo}</h2>
             </div>
-            <button aria-label="Dia seguinte" onClick={() => shiftDay(1)} className="rounded-md border border-stone-300 p-2">
+            <button aria-label="Seguinte" onClick={() => shift(1)} className="rounded-md border border-stone-300 p-2">
               <ChevronRight size={18} />
             </button>
           </div>
 
-          {loadingSlots ? (
+          {vista === "semana" ? (
+            <div className="mb-5 grid grid-cols-7 gap-1.5">
+              {diasSemana.map((d) => {
+                const key = dateKey(d);
+                const selecionado = key === diaSelecionadoKey;
+                const ehHoje = key === hojeKey;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => selecionarDia(d)}
+                    className={`flex flex-col items-center gap-0.5 rounded-md border py-2 text-xs transition ${
+                      selecionado
+                        ? "border-teal-700 bg-teal-700 text-white"
+                        : ehHoje
+                          ? "border-teal-200 bg-teal-50 text-teal-800"
+                          : "border-stone-200 text-stone-700 hover:border-stone-300"
+                    }`}
+                  >
+                    <span className="uppercase">{DIAS_CURTO_SEG[(d.getDay() + 6) % 7]}</span>
+                    <span className="text-sm font-semibold">{d.getDate()}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+
+          {vista === "mes" ? (
+            <div className="mb-5 overflow-hidden rounded-md border border-stone-200">
+              <div className="grid grid-cols-7 border-b border-stone-200 bg-stone-50 text-center text-[11px] font-medium uppercase text-stone-400">
+                {DIAS_CURTO_SEG.map((label) => (
+                  <div key={label} className="py-1.5">
+                    {label}
+                  </div>
+                ))}
+              </div>
+              <div className="grid grid-cols-7">
+                {grelhaMes.map(({ date: d, inMonth }) => {
+                  const key = dateKey(d);
+                  const selecionado = key === diaSelecionadoKey;
+                  const ehHoje = key === hojeKey;
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => selecionarDia(d)}
+                      className={`flex h-10 items-center justify-center border-b border-r border-stone-100 text-sm transition hover:bg-stone-50 ${
+                        inMonth ? "text-stone-800" : "text-stone-300"
+                      }`}
+                    >
+                      <span
+                        className={`flex h-7 w-7 items-center justify-center rounded-full ${
+                          selecionado ? "bg-teal-700 text-white" : ehHoje ? "bg-teal-50 text-teal-800" : ""
+                        }`}
+                      >
+                        {d.getDate()}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+
+          {vista !== "dia" ? (
+            <p className="mb-3 flex items-center gap-1.5 text-sm font-medium text-stone-700">
+              Horários para{" "}
+              <span className="capitalize">
+                {date.toLocaleDateString("pt-PT", { weekday: "long", day: "2-digit", month: "long" })}
+              </span>
+              {loadingSlots && slots.length > 0 ? (
+                <RefreshCw size={13} className="animate-spin text-stone-400" />
+              ) : null}
+            </p>
+          ) : null}
+
+          {motivosBloqueio.length > 0 ? (
+            <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 p-3">
+              <p className="flex items-center gap-1.5 text-sm font-medium text-amber-900">
+                <Ban size={14} />
+                Períodos indisponíveis neste dia
+              </p>
+              <ul className="mt-1.5 grid gap-0.5 text-sm text-amber-800">
+                {motivosBloqueio.map(({ motivo, horas }) => (
+                  <li key={motivo}>
+                    <span className="font-medium">{horas}</span> — {motivo}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {slots.length === 0 && loadingSlots ? (
             <p className="py-8 text-center text-sm text-stone-500">A carregar horários…</p>
           ) : slots.length === 0 ? (
             <p className="py-8 text-center text-sm text-stone-500">Sem horários disponíveis neste dia.</p>
           ) : (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+            <div
+              aria-busy={loadingSlots}
+              className={`grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 transition-opacity ${
+                loadingSlots ? "pointer-events-none opacity-40" : ""
+              }`}
+            >
               {slots.map((slot) => (
                 <button
                   key={slot.startsAt}
                   disabled={!slot.available}
                   onClick={() => setSelectedSlot(slot.startsAt)}
-                  className={`h-11 rounded-md border text-sm font-medium transition disabled:cursor-not-allowed disabled:bg-stone-100 disabled:text-stone-400 ${
-                    selectedSlot === slot.startsAt ? "border-teal-700 bg-teal-700 text-white" : "border-stone-300 bg-white text-stone-800"
+                  title={
+                    slot.blockedReason
+                      ? `Indisponível: ${slot.blockedReason}`
+                      : !slot.available
+                        ? "Horário já reservado"
+                        : undefined
+                  }
+                  className={`inline-flex h-11 items-center justify-center gap-1.5 rounded-md border text-sm font-medium transition disabled:cursor-not-allowed ${
+                    selectedSlot === slot.startsAt
+                      ? "border-teal-700 bg-teal-700 text-white"
+                      : slot.blockedReason
+                        ? "border-amber-200 bg-amber-50 text-amber-700"
+                        : "border-stone-300 bg-white text-stone-800 disabled:bg-stone-100 disabled:text-stone-400"
                   }`}
                 >
+                  {slot.blockedReason ? <Ban size={13} /> : null}
                   {slot.startsAt}
                 </button>
               ))}

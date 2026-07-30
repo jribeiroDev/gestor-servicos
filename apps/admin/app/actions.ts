@@ -18,7 +18,14 @@ import {
   type ServicoUpdate,
 } from "@gestor/database";
 import { requireUser } from "../lib/auth";
+import { fetchReservasIntervalo, mapReservaAgenda, type ReservaAgendaView } from "../lib/admin-data";
 import { notificarReservaPorToken } from "../lib/push";
+
+export async function getReservasIntervaloAction(from: string, to: string): Promise<ReservaAgendaView[]> {
+  await requireUser();
+  const reservas = await fetchReservasIntervalo(from, to);
+  return reservas.map(mapReservaAgenda);
+}
 
 export type ActionResult = { ok: true } | { ok: false; erro: string };
 
@@ -189,6 +196,11 @@ export async function criarBloqueioAction(input: {
   await requireUser();
   if (!input.dataInicio || !input.dataFim || new Date(input.dataInicio) >= new Date(input.dataFim)) {
     return { ok: false, erro: "O início tem de ser anterior ao fim." };
+  }
+  const inicioDeHoje = new Date();
+  inicioDeHoje.setHours(0, 0, 0, 0);
+  if (new Date(input.dataInicio) < inicioDeHoje) {
+    return { ok: false, erro: "Não é possível criar bloqueios em datas passadas." };
   }
   try {
     await criarBloqueio(createServiceRoleClient(), {

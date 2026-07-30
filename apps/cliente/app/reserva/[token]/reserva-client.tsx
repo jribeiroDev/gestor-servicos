@@ -1,30 +1,32 @@
 "use client";
 
-import { Button } from "@gestor/ui";
+import { Button, Input } from "@gestor/ui";
 import type { ReservaEstado } from "@gestor/database";
 import { dateKey, type Slot } from "@gestor/utils";
-import { CalendarCheck, CalendarX, Check, ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import {
+  ArrowLeft,
+  Ban,
+  CalendarCheck,
+  CalendarX,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Copy,
+  Link2,
+  RefreshCw,
+  RotateCcw,
+} from "lucide-react";
+import Link from "next/link";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import {
   cancelarReservaAction,
   confirmarReservaAction,
+  getReservaViewAction,
   getSlotsAction,
   reagendarReservaAction,
+  type ReservaView,
 } from "../../actions";
 import { NotificacoesButton } from "../../notificacoes-button";
-
-type ReservaView = {
-  token: string;
-  servicoId: string;
-  servicoNome: string;
-  data: string;
-  horaInicio: string;
-  horaFim: string;
-  nomeCliente: string;
-  estado: ReservaEstado;
-  confirmadoPeloCliente: boolean;
-};
 
 const ESTADO_LABEL: Record<ReservaEstado, string> = {
   pendente: "Pendente",
@@ -55,42 +57,71 @@ function formatarData(dia: string): string {
   });
 }
 
-export function ReservaClient({ reserva, novo }: { reserva: ReservaView; novo: boolean }) {
-  const router = useRouter();
+export function ReservaClient({ reserva: reservaInicial, novo }: { reserva: ReservaView; novo: boolean }) {
+  const [reserva, setReserva] = useState(reservaInicial);
+  const [aSincronizar, setASincronizar] = useState(false);
+  const [copiado, setCopiado] = useState(false);
+  const [avisoCopia, setAvisoCopia] = useState<string | null>(null);
+  const [origem, setOrigem] = useState("");
+  const copiadoTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const linkInput = useRef<HTMLInputElement | null>(null);
   const [pending, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
   const [aReagendar, setAReagendar] = useState(false);
-  const [date, setDate] = useState(() => parseDia(reserva.data));
+  const [date, setDate] = useState(() => parseDia(reservaInicial.data));
   const [slots, setSlots] = useState<Slot[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [novoSlot, setNovoSlot] = useState<string | null>(null);
 
   const ativa = reserva.estado === "pendente" || reserva.estado === "confirmada";
+  const tokenRef = useRef(reserva.token);
 
-  // Mantém a reserva sincronizada com o admin: refresca ao receber um push
-  // e por polling leve enquanto a página está visível.
+  // Só no cliente — evita divergência entre servidor e browser na hidratação.
   useEffect(() => {
-    const refrescar = () => router.refresh();
+    setOrigem(window.location.origin);
+    return () => {
+      if (copiadoTimeout.current) {
+        clearTimeout(copiadoTimeout.current);
+      }
+    };
+  }, []);
+
+  // Busca silenciosa: atualiza os dados em memória, sem navegar nem recarregar a página.
+  const sincronizar = useCallback(async () => {
+    setASincronizar(true);
+    try {
+      const atual = await getReservaViewAction(tokenRef.current);
+      if (atual) {
+        setReserva(atual);
+      }
+    } finally {
+      setASincronizar(false);
+    }
+  }, []);
+
+  // Mantém a reserva sincronizada com o admin: sincroniza ao receber um push
+  // e por polling leve enquanto a página está visível — sem router.refresh().
+  useEffect(() => {
     const onMessage = (event: MessageEvent) => {
       if ((event.data as { type?: string } | null)?.type === "reserva-atualizada") {
-        refrescar();
+        void sincronizar();
       }
     };
     const onVisivel = () => {
       if (document.visibilityState === "visible") {
-        refrescar();
+        void sincronizar();
       }
     };
     const sw = typeof navigator !== "undefined" ? navigator.serviceWorker : undefined;
     sw?.addEventListener("message", onMessage);
     document.addEventListener("visibilitychange", onVisivel);
-    const intervalo = setInterval(refrescar, 15000);
+    const intervalo = setInterval(() => void sincronizar(), 15000);
     return () => {
       sw?.removeEventListener("message", onMessage);
       document.removeEventListener("visibilitychange", onVisivel);
       clearInterval(intervalo);
     };
-  }, [router]);
+  }, [sincronizar]);
 
   useEffect(() => {
     if (!aReagendar) {
@@ -126,15 +157,71 @@ export function ReservaClient({ reserva, novo }: { reserva: ReservaView; novo: b
       const resultado = await accao();
       if (resultado.ok) {
         setAReagendar(false);
-        router.refresh();
+        await sincronizar();
       } else {
         setErro(resultado.erro ?? "Ocorreu um erro.");
       }
     });
   };
 
+  // Link limpo da reserva (sem parâmetros como ?novo=1).
+  const linkReserva = `${origem}/reserva/${reserva.token}`;
+
+  const copiarLink = async () => {
+    setAvisoCopia(null);
+
+    // A Clipboard API só existe em contexto seguro (https/localhost); em acesso
+    // por IP na rede local recorremos à seleção + execCommand.
+    const porClipboardApi = async () => {
+      if (!navigator.clipboard?.writeText) {
+        return false;
+      }
+      try {
+        await navigator.clipboard.writeText(linkReserva);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    const porSelecao = () => {
+      const campo = linkInput.current;
+      if (!campo) {
+        return false;
+      }
+      try {
+        campo.focus();
+        campo.select();
+        campo.setSelectionRange(0, linkReserva.length);
+        return document.execCommand("copy");
+      } catch {
+        return false;
+      }
+    };
+
+    if ((await porClipboardApi()) || porSelecao()) {
+      setCopiado(true);
+      if (copiadoTimeout.current) {
+        clearTimeout(copiadoTimeout.current);
+      }
+      copiadoTimeout.current = setTimeout(() => setCopiado(false), 2000);
+      return;
+    }
+
+    linkInput.current?.select();
+    setAvisoCopia("O link está selecionado — use Ctrl+C (ou toque longo → Copiar).");
+  };
+
   return (
     <main className="mx-auto flex min-h-screen max-w-3xl flex-col justify-center gap-4 px-5 py-10">
+      <Link
+        href="/"
+        className="inline-flex items-center gap-2 self-start text-sm font-medium text-stone-600 transition hover:text-stone-900"
+      >
+        <ArrowLeft size={16} />
+        Voltar à página principal
+      </Link>
+
       {novo ? (
         <div className="rounded-lg border border-teal-200 bg-teal-50 p-4 text-sm font-medium text-teal-800">
           Reserva criada com sucesso! Guarde este link para gerir a sua marcação.
@@ -143,7 +230,10 @@ export function ReservaClient({ reserva, novo }: { reserva: ReservaView; novo: b
 
       <section className="rounded-lg border border-stone-200 bg-white p-6">
         <div className="flex items-center justify-between">
-          <p className="text-sm font-medium text-teal-700">Reserva</p>
+          <p className="flex items-center gap-1.5 text-sm font-medium text-teal-700">
+            Reserva
+            {aSincronizar ? <RefreshCw size={12} className="animate-spin text-teal-400" /> : null}
+          </p>
           <span className={`rounded-md px-2 py-1 text-xs font-medium ${ESTADO_CLASSE[reserva.estado]}`}>
             {ESTADO_LABEL[reserva.estado]}
           </span>
@@ -181,7 +271,13 @@ export function ReservaClient({ reserva, novo }: { reserva: ReservaView; novo: b
               variant="secondary"
               disabled={pending}
               onClick={() => {
-                setAReagendar((v) => !v);
+                setAReagendar((v) => {
+                  const next = !v;
+                  if (next) {
+                    setDate(parseDia(reserva.data));
+                  }
+                  return next;
+                });
                 setNovoSlot(null);
               }}
             >
@@ -201,6 +297,33 @@ export function ReservaClient({ reserva, novo }: { reserva: ReservaView; novo: b
         ) : (
           <p className="mt-6 text-sm text-stone-500">Esta reserva já não pode ser alterada.</p>
         )}
+
+        <div className="mt-6 border-t border-stone-200 pt-4">
+          <p className="mb-2 flex items-center gap-1.5 text-sm text-stone-500">
+            <Link2 size={14} />
+            Link desta reserva — guarde-o para voltar mais tarde
+          </p>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Input
+              ref={linkInput}
+              readOnly
+              value={linkReserva}
+              onFocus={(event) => event.currentTarget.select()}
+              className="font-mono text-xs sm:text-sm"
+              aria-label="Link desta reserva"
+            />
+            <Button
+              type="button"
+              variant={copiado ? "primary" : "secondary"}
+              onClick={copiarLink}
+              className="shrink-0"
+            >
+              {copiado ? <Check size={16} /> : <Copy size={16} />}
+              {copiado ? "Copiado!" : "Copiar"}
+            </Button>
+          </div>
+          {avisoCopia ? <p className="mt-2 text-xs text-stone-500">{avisoCopia}</p> : null}
+        </div>
 
         {ativa ? (
           <div className="mt-6 border-t border-stone-200 pt-4">
@@ -227,21 +350,38 @@ export function ReservaClient({ reserva, novo }: { reserva: ReservaView; novo: b
             </button>
           </div>
 
-          {loadingSlots ? (
+          {slots.length === 0 && loadingSlots ? (
             <p className="py-6 text-center text-sm text-stone-500">A carregar horários…</p>
           ) : slots.length === 0 ? (
             <p className="py-6 text-center text-sm text-stone-500">Sem horários disponíveis neste dia.</p>
           ) : (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+            <div
+              aria-busy={loadingSlots}
+              className={`grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 transition-opacity ${
+                loadingSlots ? "pointer-events-none opacity-40" : ""
+              }`}
+            >
               {slots.map((slot) => (
                 <button
                   key={slot.startsAt}
                   disabled={!slot.available}
                   onClick={() => setNovoSlot(slot.startsAt)}
-                  className={`h-11 rounded-md border text-sm font-medium transition disabled:cursor-not-allowed disabled:bg-stone-100 disabled:text-stone-400 ${
-                    novoSlot === slot.startsAt ? "border-teal-700 bg-teal-700 text-white" : "border-stone-300 bg-white text-stone-800"
+                  title={
+                    slot.blockedReason
+                      ? `Indisponível: ${slot.blockedReason}`
+                      : !slot.available
+                        ? "Horário já reservado"
+                        : undefined
+                  }
+                  className={`inline-flex h-11 items-center justify-center gap-1.5 rounded-md border text-sm font-medium transition disabled:cursor-not-allowed ${
+                    novoSlot === slot.startsAt
+                      ? "border-teal-700 bg-teal-700 text-white"
+                      : slot.blockedReason
+                        ? "border-amber-200 bg-amber-50 text-amber-700"
+                        : "border-stone-300 bg-white text-stone-800 disabled:bg-stone-100 disabled:text-stone-400"
                   }`}
                 >
+                  {slot.blockedReason ? <Ban size={13} /> : null}
                   {slot.startsAt}
                 </button>
               ))}

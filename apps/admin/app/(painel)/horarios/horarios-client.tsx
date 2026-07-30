@@ -16,13 +16,40 @@ type BloqueioView = { id: string; dataInicio: string; dataFim: string; motivo: s
 
 const DIAS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 
-function formatarBloqueio(iso: string): string {
-  return new Date(iso).toLocaleString("pt-PT", {
-    day: "2-digit",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+const APENAS_DATA = /^\d{4}-\d{2}-\d{2}$/;
+
+const pad = (valor: number) => valor.toString().padStart(2, "0");
+const chaveData = (data: Date) =>
+  `${data.getFullYear()}-${pad(data.getMonth() + 1)}-${pad(data.getDate())}`;
+
+/** Aceita ISO completo ou data simples (que representa o dia inteiro). */
+function parseLimite(valor: string): { data: Date; apenasData: boolean } {
+  if (APENAS_DATA.test(valor)) {
+    const [ano, mes, dia] = valor.split("-").map(Number);
+    return { data: new Date(ano, mes - 1, dia), apenasData: true };
+  }
+  return { data: new Date(valor), apenasData: false };
+}
+
+function formatarBloqueio(inicioIso: string, fimIso: string): string {
+  const inicio = parseLimite(inicioIso);
+  const fim = parseLimite(fimIso);
+  const dia = (data: Date) => data.toLocaleDateString("pt-PT", { day: "2-digit", month: "short" });
+  const hora = (data: Date) => data.toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" });
+
+  const mesmoDia = chaveData(inicio.data) === chaveData(fim.data);
+  // Sem hora na BD (coluna `date`) ou a cobrir o dia todo.
+  const diaInteiro =
+    inicio.apenasData ||
+    fim.apenasData ||
+    (inicio.data.getHours() === 0 && inicio.data.getMinutes() === 0 && fim.data.getHours() >= 23);
+
+  if (diaInteiro) {
+    return mesmoDia ? `${dia(inicio.data)} · dia inteiro` : `${dia(inicio.data)} → ${dia(fim.data)} · dias inteiros`;
+  }
+  return mesmoDia
+    ? `${dia(inicio.data)} · ${hora(inicio.data)}–${hora(fim.data)}`
+    : `${dia(inicio.data)} ${hora(inicio.data)} → ${dia(fim.data)} ${hora(fim.data)}`;
 }
 
 export function HorariosClient({
@@ -40,8 +67,12 @@ export function HorariosClient({
   const [horaInicio, setHoraInicio] = useState("09:00");
   const [horaFim, setHoraFim] = useState("18:00");
 
-  const [bInicio, setBInicio] = useState("");
-  const [bFim, setBFim] = useState("");
+  const hojeKey = chaveData(new Date());
+  const [bDataInicio, setBDataInicio] = useState(hojeKey);
+  const [bDataFim, setBDataFim] = useState(hojeKey);
+  const [bHoraInicio, setBHoraInicio] = useState("09:00");
+  const [bHoraFim, setBHoraFim] = useState("18:00");
+  const [bDiaInteiro, setBDiaInteiro] = useState(true);
   const [bMotivo, setBMotivo] = useState("");
 
   const executar = (accao: () => Promise<{ ok: boolean; erro?: string }>) => {
@@ -60,19 +91,32 @@ export function HorariosClient({
     executar(() => criarHorarioAction({ diaSemana, horaInicio, horaFim }));
 
   const adicionarBloqueio = () => {
-    if (!bInicio || !bFim) {
-      setErro("Indique início e fim do bloqueio.");
+    setErro(null);
+    if (!bDataInicio || !bDataFim) {
+      setErro("Indique as datas do bloqueio.");
       return;
     }
+    const inicio = new Date(`${bDataInicio}T${bDiaInteiro ? "00:00" : bHoraInicio}:00`);
+    const fim = new Date(`${bDataFim}T${bDiaInteiro ? "23:59" : bHoraFim}:00`);
+
+    if (fim <= inicio) {
+      setErro("O fim do bloqueio tem de ser depois do início.");
+      return;
+    }
+    const inicioDeHoje = new Date();
+    inicioDeHoje.setHours(0, 0, 0, 0);
+    if (inicio < inicioDeHoje) {
+      setErro("Não é possível criar bloqueios em datas passadas.");
+      return;
+    }
+
     executar(() =>
       criarBloqueioAction({
-        dataInicio: new Date(bInicio).toISOString(),
-        dataFim: new Date(bFim).toISOString(),
+        dataInicio: inicio.toISOString(),
+        dataFim: fim.toISOString(),
         motivo: bMotivo,
       }),
     );
-    setBInicio("");
-    setBFim("");
     setBMotivo("");
   };
 
@@ -169,7 +213,7 @@ export function HorariosClient({
                 >
                   <span>
                     <span className="font-medium text-stone-800">
-                      {formatarBloqueio(b.dataInicio)} → {formatarBloqueio(b.dataFim)}
+                      {formatarBloqueio(b.dataInicio, b.dataFim)}
                     </span>
                     {b.motivo ? <span className="text-stone-500"> · {b.motivo}</span> : null}
                   </span>
@@ -187,18 +231,74 @@ export function HorariosClient({
           </div>
 
           <div className="mt-4 grid gap-3 border-t border-stone-200 pt-4">
-            <label className="text-sm font-medium text-stone-700">
-              Início
-              <Input type="datetime-local" className="mt-2" value={bInicio} onChange={(e) => setBInicio(e.target.value)} />
+            <p className="text-sm font-medium text-stone-700">Novo bloqueio</p>
+
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-stone-700">
+              <input
+                type="checkbox"
+                checked={bDiaInteiro}
+                onChange={(e) => setBDiaInteiro(e.target.checked)}
+                className="h-4 w-4 rounded border-stone-300"
+              />
+              Dia(s) inteiro(s)
             </label>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="text-xs font-medium uppercase tracking-wide text-stone-500">
+                De
+                <Input
+                  type="date"
+                  min={hojeKey}
+                  className="mt-1.5"
+                  value={bDataInicio}
+                  onChange={(e) => {
+                    setBDataInicio(e.target.value);
+                    // Mantém o fim coerente com o início.
+                    if (e.target.value && bDataFim < e.target.value) {
+                      setBDataFim(e.target.value);
+                    }
+                  }}
+                />
+                {!bDiaInteiro ? (
+                  <Input
+                    type="time"
+                    className="mt-1.5"
+                    value={bHoraInicio}
+                    onChange={(e) => setBHoraInicio(e.target.value)}
+                  />
+                ) : null}
+              </label>
+
+              <label className="text-xs font-medium uppercase tracking-wide text-stone-500">
+                Até
+                <Input
+                  type="date"
+                  min={bDataInicio || hojeKey}
+                  className="mt-1.5"
+                  value={bDataFim}
+                  onChange={(e) => setBDataFim(e.target.value)}
+                />
+                {!bDiaInteiro ? (
+                  <Input
+                    type="time"
+                    className="mt-1.5"
+                    value={bHoraFim}
+                    onChange={(e) => setBHoraFim(e.target.value)}
+                  />
+                ) : null}
+              </label>
+            </div>
+
             <label className="text-sm font-medium text-stone-700">
-              Fim
-              <Input type="datetime-local" className="mt-2" value={bFim} onChange={(e) => setBFim(e.target.value)} />
+              Motivo (visível ao cliente)
+              <Input
+                className="mt-2"
+                value={bMotivo}
+                onChange={(e) => setBMotivo(e.target.value)}
+                placeholder="Ex.: Férias, Formação, Almoço"
+              />
             </label>
-            <label className="text-sm font-medium text-stone-700">
-              Motivo (opcional)
-              <Input className="mt-2" value={bMotivo} onChange={(e) => setBMotivo(e.target.value)} placeholder="Ex.: Férias" />
-            </label>
+
             <Button type="button" disabled={pending} onClick={adicionarBloqueio}>
               <Plus size={16} />
               Adicionar bloqueio

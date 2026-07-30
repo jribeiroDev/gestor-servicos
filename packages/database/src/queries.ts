@@ -99,6 +99,13 @@ export async function apagarHorario(client: TypedSupabaseClient, id: string): Pr
 
 /* ------------------------------------------------------------ Bloqueios */
 
+/** "2026-08-05" → "2026-08-06" (limite superior exclusivo). */
+function diaSeguinte(dia: string): string {
+  const [ano, mes, d] = dia.split("-").map(Number);
+  const seguinte = new Date(Date.UTC(ano, (mes ?? 1) - 1, (d ?? 1) + 1));
+  return seguinte.toISOString().slice(0, 10);
+}
+
 export async function listBloqueios(
   client: TypedSupabaseClient,
   range?: { from?: string; to?: string },
@@ -108,7 +115,9 @@ export async function listBloqueios(
     query = query.gte("data_fim", range.from);
   }
   if (range?.to) {
-    query = query.lte("data_inicio", range.to);
+    // Limite exclusivo no dia seguinte: com `lte(to)` um bloqueio que começa
+    // às 10:00 do dia `to` seria excluído (10:00 > meia-noite de `to`).
+    query = query.lt("data_inicio", diaSeguinte(range.to));
   }
   return unwrap(await query.order("data_inicio", { ascending: true }));
 }
