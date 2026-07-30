@@ -6,7 +6,7 @@
     "dev": "next dev --port 3000",
     "build": "next build",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit --pretty false app/page.tsx \"app/reserva/[token]/page.tsx\" app/layout.tsx tailwind.config.ts --jsx preserve --module ESNext --moduleResolution Bundler --target ES2022 --skipLibCheck --strict --esModuleInterop"
+    "typecheck": "tsc --noEmit --pretty false app/page.tsx app/booking-client.tsx app/notificacoes-button.tsx app/actions.ts app/lib/booking-data.ts app/lib/push.ts \"app/reserva/[token]/page.tsx\" \"app/reserva/[token]/reserva-client.tsx\" app/layout.tsx tailwind.config.ts --jsx preserve --module ESNext --moduleResolution Bundler --target ES2022 --skipLibCheck --strict --esModuleInterop"
   },
   "dependencies": {
     "@gestor/database": "workspace:*",
@@ -16,11 +16,13 @@
     "lucide-react": "^0.468.0",
     "next": "15.5.22",
     "react": "19.0.0",
-    "react-dom": "19.0.0"
+    "react-dom": "19.0.0",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@types/react": "19.0.2",
     "@types/react-dom": "19.0.2",
+    "@types/web-push": "^3.6.4",
     "autoprefixer": "^10.4.20",
     "eslint": "^9.17.0",
     "eslint-config-next": "15.5.22",

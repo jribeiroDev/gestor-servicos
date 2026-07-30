@@ -1,11 +1,24 @@
 import { clsx } from "clsx";
 import type { ButtonHTMLAttributes, InputHTMLAttributes, PropsWithChildren, ReactNode } from "react";
 
-export function Button({ className, ...props }: ButtonHTMLAttributes<HTMLButtonElement>) {
+export type ButtonVariant = "primary" | "secondary" | "danger";
+
+const buttonVariants: Record<ButtonVariant, string> = {
+  primary: "bg-stone-950 text-white hover:bg-stone-800",
+  secondary: "border border-stone-300 bg-white text-stone-800 hover:bg-stone-100",
+  danger: "border border-red-200 bg-white text-red-700 hover:bg-red-50",
+};
+
+export function Button({
+  className,
+  variant = "primary",
+  ...props
+}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: ButtonVariant }) {
   return (
     <button
       className={clsx(
-        "inline-flex h-10 items-center justify-center gap-2 rounded-md bg-stone-950 px-4 text-sm font-medium text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-50",
+        "inline-flex h-10 items-center justify-center gap-2 rounded-md px-4 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50",
+        buttonVariants[variant],
         className,
       )}
       {...props}

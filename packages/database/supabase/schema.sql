@@ -52,15 +52,32 @@ create table if not exists public.configuracoes_notificacao (
   email_ativo boolean not null default false,
   whatsapp_ativo boolean not null default false,
   whatsapp_numero_id text,
+  whatsapp_numero text,
+  email_destino text,
+  sms_numero text,
   sms_ativo boolean not null default false,
+  atualizado_em timestamptz not null default now(),
   check (id)
 );
+
+create or replace function public.set_atualizado_em()
+returns trigger as $$
+begin
+  new.atualizado_em = now();
+  return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists trg_config_notificacao_atualizado on public.configuracoes_notificacao;
+create trigger trg_config_notificacao_atualizado
+  before update on public.configuracoes_notificacao
+  for each row execute function public.set_atualizado_em();
 
 create table if not exists public.push_subscriptions (
   id uuid primary key default gen_random_uuid(),
   reserva_id uuid references public.reservas(id) on delete cascade,
   token_acesso uuid,
-  endpoint text not null,
+  endpoint text not null unique,
   keys jsonb not null,
   criado_em timestamptz not null default now()
 );

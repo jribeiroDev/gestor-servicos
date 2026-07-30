@@ -1,8 +1,23 @@
 {
-  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "types": []
+    "noEmit": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "jsx": "preserve",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "target": "ES2022",
+    "lib": ["dom", "dom.iterable", "es2022"],
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true
   },
-  "include": ["app/**/*.ts", "app/**/*.tsx", "tailwind.config.ts"],
+  "include": [
+    "app/**/*.ts",
+    "app/**/*.tsx",
+    "lib/**/*.ts",
+    "middleware.ts",
+    "tailwind.config.ts"
+  ],
   "exclude": ["node_modules", ".next"]
 }
