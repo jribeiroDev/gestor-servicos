@@ -2,10 +2,10 @@
 
 Este é um monorepo (Turborepo + pnpm) com **duas** aplicações Next.js:
 
-| App           | Pasta          | O que é                          |
-| ------------- | -------------- | -------------------------------- |
-| `cliente`     | `apps/cliente` | Marcação online (público, PWA)   |
-| `admin`       | `apps/admin`   | Painel de gestão (com login)     |
+| App       | Pasta          | O que é                        |
+| --------- | -------------- | ------------------------------ |
+| `cliente` | `apps/cliente` | Marcação online (público, PWA) |
+| `admin`   | `apps/admin`   | Painel de gestão (com login)   |
 
 Na Vercel cria-se **um projeto por app**, ambos ligados ao mesmo repositório,
 diferindo apenas na _Root Directory_.
@@ -22,7 +22,7 @@ diferindo apenas na _Root Directory_.
    [Segurança](#segurança) — sem isto, qualquer pessoa pode criar conta e
    entrar no painel de administração.
 
-3. **Ter o código no GitHub** (`git push`).
+3. **Ter o código no GitHub** (`git push`)..
 
 ---
 
@@ -30,12 +30,12 @@ diferindo apenas na _Root Directory_.
 
 Na Vercel: **Add New → Project** → importar o repositório `gestor-servicos`.
 
-| Campo               | Valor                                  |
-| ------------------- | -------------------------------------- |
-| Project Name        | `gestor-servicos-cliente` (à escolha)  |
-| Framework Preset    | Next.js (detetado automaticamente)     |
-| **Root Directory**  | `apps/cliente`                         |
-| Build / Install     | deixar os valores por omissão          |
+| Campo              | Valor                                 |
+| ------------------ | ------------------------------------- |
+| Project Name       | `gestor-servicos-cliente` (à escolha) |
+| Framework Preset   | Next.js (detetado automaticamente)    |
+| **Root Directory** | `apps/cliente`                        |
+| Build / Install    | deixar os valores por omissão         |
 
 A Vercel deteta o workspace pnpm e o Turborepo sozinha: instala na raiz do
 repositório e compila apenas esta app.
@@ -59,10 +59,10 @@ Aplicar a _Production_, _Preview_ e _Development_.
 
 Repetir o processo, importando **o mesmo repositório**:
 
-| Campo               | Valor                                |
-| ------------------- | ------------------------------------ |
-| Project Name        | `gestor-servicos-admin`              |
-| **Root Directory**  | `apps/admin`                         |
+| Campo              | Valor                   |
+| ------------------ | ----------------------- |
+| Project Name       | `gestor-servicos-admin` |
+| **Root Directory** | `apps/admin`            |
 
 ### Variáveis de ambiente
 
