@@ -4,7 +4,14 @@ import { Bell, BellOff, BellRing } from "lucide-react";
 import { useEffect, useState } from "react";
 import { guardarSubscricaoAdminAction, removerSubscricaoAdminAction } from "../../actions";
 
-type Estado = "indisponivel" | "sem-config" | "inativo" | "a-processar" | "ativo" | "erro";
+type Estado =
+  | "indisponivel"
+  | "sem-config"
+  | "inativo"
+  | "a-processar"
+  | "ativo"
+  | "bloqueado"
+  | "erro";
 
 function urlBase64ToUint8Array(base64: string): Uint8Array {
   const padding = "=".repeat((4 - (base64.length % 4)) % 4);
@@ -39,7 +46,11 @@ export function NotificacoesAdminButton() {
       try {
         const registration = await navigator.serviceWorker.ready;
         const subscricao = await registration.pushManager.getSubscription();
-        if (!cancelado) setEstado(subscricao ? "ativo" : "inativo");
+        if (!cancelado) {
+          if (subscricao) setEstado("ativo");
+          else if (Notification.permission === "denied") setEstado("bloqueado");
+          else setEstado("inativo");
+        }
       } catch {
         if (!cancelado) setEstado("inativo");
       }
@@ -55,10 +66,12 @@ export function NotificacoesAdminButton() {
     try {
       const permissao = await Notification.requestPermission();
       if (permissao !== "granted") {
-        setEstado("inativo");
-        setDetalheErro(
-          permissao === "denied" ? "Permissão de notificações bloqueada nas definições do browser." : null,
-        );
+        if (permissao === "denied") {
+          setEstado("bloqueado");
+          setDetalheErro(null);
+        } else {
+          setEstado("inativo");
+        }
         return;
       }
       const registration = await navigator.serviceWorker.ready;
@@ -112,10 +125,15 @@ export function NotificacoesAdminButton() {
     inativo: "Ativar avisos neste dispositivo",
     "a-processar": "Um momento…",
     ativo: "Avisos ativos — desativar",
+    bloqueado: "Notificações bloqueadas neste site",
     erro: "Tentar novamente",
   };
 
-  const desativado = estado === "indisponivel" || estado === "sem-config" || estado === "a-processar";
+  const desativado =
+    estado === "indisponivel" ||
+    estado === "sem-config" ||
+    estado === "a-processar" ||
+    estado === "bloqueado";
   const Icone = estado === "ativo" ? BellRing : estado === "inativo" ? Bell : BellOff;
 
   return (
@@ -142,6 +160,13 @@ export function NotificacoesAdminButton() {
       {estado === "erro" ? (
         <p className="mt-2 text-xs text-red-600 dark:text-red-400">
           {detalheErro ?? "Não foi possível concluir. Verifique as permissões do browser."}
+        </p>
+      ) : null}
+      {estado === "bloqueado" ? (
+        <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
+          As notificações estão <strong>bloqueadas</strong> para este site neste dispositivo. Reative-as nas
+          definições do browser (toque no ícone de cadeado/⋮ ao lado do endereço → Notificações → Permitir) e
+          volte a abrir esta página. No iPhone, adicione primeiro a app ao ecrã principal.
         </p>
       ) : null}
       {estado === "sem-config" ? (

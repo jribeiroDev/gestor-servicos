@@ -8,7 +8,14 @@ import {
   removerSubscricaoAction,
 } from "./actions";
 
-type Estado = "indisponivel" | "sem-config" | "inativo" | "a-processar" | "ativo" | "erro";
+type Estado =
+  | "indisponivel"
+  | "sem-config"
+  | "inativo"
+  | "a-processar"
+  | "ativo"
+  | "bloqueado"
+  | "erro";
 
 function urlBase64ToUint8Array(base64: string): Uint8Array {
   const padding = "=".repeat((4 - (base64.length % 4)) % 4);
@@ -44,7 +51,9 @@ export function NotificacoesButton({ token }: { token?: string }) {
         const registration = await navigator.serviceWorker.ready;
         const subscricao = await registration.pushManager.getSubscription();
         if (!cancelado) {
-          setEstado(subscricao ? "ativo" : "inativo");
+          if (subscricao) setEstado("ativo");
+          else if (Notification.permission === "denied") setEstado("bloqueado");
+          else setEstado("inativo");
         }
         // Garante que uma subscrição já existente fica ligada a ESTA reserva,
         // senão os avisos de mudança de estado nunca a encontram.
@@ -66,12 +75,12 @@ export function NotificacoesButton({ token }: { token?: string }) {
     try {
       const permissao = await Notification.requestPermission();
       if (permissao !== "granted") {
-        setEstado("inativo");
-        setDetalheErro(
-          permissao === "denied"
-            ? "Permissão de notificações bloqueada nas definições do browser."
-            : null,
-        );
+        if (permissao === "denied") {
+          setEstado("bloqueado");
+          setDetalheErro(null);
+        } else {
+          setEstado("inativo");
+        }
         return;
       }
       const registration = await navigator.serviceWorker.ready;
@@ -132,10 +141,15 @@ export function NotificacoesButton({ token }: { token?: string }) {
     inativo: "Ativar notificações",
     "a-processar": "Um momento…",
     ativo: "Desativar notificações",
+    bloqueado: "Notificações bloqueadas",
     erro: "Tentar novamente",
   };
 
-  const desativado = estado === "indisponivel" || estado === "sem-config" || estado === "a-processar";
+  const desativado =
+    estado === "indisponivel" ||
+    estado === "sem-config" ||
+    estado === "a-processar" ||
+    estado === "bloqueado";
 
   const Icone = estado === "ativo" ? BellRing : estado === "inativo" ? Bell : BellOff;
 
@@ -157,6 +171,12 @@ export function NotificacoesButton({ token }: { token?: string }) {
       {estado === "erro" ? (
         <span className="text-xs text-red-600 dark:text-red-400">
           {detalheErro ?? "Não foi possível concluir. Verifique as permissões do browser."}
+        </span>
+      ) : null}
+      {estado === "bloqueado" ? (
+        <span className="text-xs text-amber-700 dark:text-amber-400">
+          Notificações bloqueadas para este site. Reative-as nas definições do browser (ícone de cadeado →
+          Notificações → Permitir).
         </span>
       ) : null}
       {estado === "sem-config" ? (
