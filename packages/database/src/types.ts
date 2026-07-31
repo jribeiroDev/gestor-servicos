@@ -29,6 +29,21 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["servicos"]["Row"]>;
         Relationships: [];
       };
+      equipa: {
+        Row: {
+          id: string;
+          nome: string;
+          foto_url: string | null;
+          ativo: boolean;
+          ordem: number;
+          criado_em: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["equipa"]["Row"]> & {
+          nome: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["equipa"]["Row"]>;
+        Relationships: [];
+      };
       horarios_funcionamento: {
         Row: {
           id: string;
@@ -148,6 +163,9 @@ export type ServicoUpdate = Database["public"]["Tables"]["servicos"]["Update"];
 export type Reserva = Database["public"]["Tables"]["reservas"]["Row"];
 export type ReservaInsert = Database["public"]["Tables"]["reservas"]["Insert"];
 export type ReservaUpdate = Database["public"]["Tables"]["reservas"]["Update"];
+
+export type MembroEquipa = Database["public"]["Tables"]["equipa"]["Row"];
+export type MembroEquipaInsert = Database["public"]["Tables"]["equipa"]["Insert"];
 
 export type HorarioFuncionamento =
   Database["public"]["Tables"]["horarios_funcionamento"]["Row"];

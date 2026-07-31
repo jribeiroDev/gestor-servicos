@@ -14,6 +14,15 @@ create table if not exists public.servicos (
   criado_em timestamptz not null default now()
 );
 
+create table if not exists public.equipa (
+  id uuid primary key default gen_random_uuid(),
+  nome text not null,
+  foto_url text,
+  ativo boolean not null default true,
+  ordem integer not null default 0,
+  criado_em timestamptz not null default now()
+);
+
 create table if not exists public.horarios_funcionamento (
   id uuid primary key default gen_random_uuid(),
   dia_semana smallint not null check (dia_semana between 0 and 6),

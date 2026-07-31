@@ -8,7 +8,7 @@ import {
   apagarBloqueioAction,
   apagarHorarioAction,
   criarBloqueioAction,
-  criarHorarioAction,
+  criarHorariosAction,
 } from "../../actions";
 
 type HorarioView = { id: string; diaSemana: number; horaInicio: string; horaFim: string };
@@ -66,6 +66,9 @@ export function HorariosClient({
   const [diaSemana, setDiaSemana] = useState(1);
   const [horaInicio, setHoraInicio] = useState("09:00");
   const [horaFim, setHoraFim] = useState("18:00");
+  const [comPausa, setComPausa] = useState(false);
+  const [pausaInicio, setPausaInicio] = useState("13:00");
+  const [pausaFim, setPausaFim] = useState("14:00");
 
   const hojeKey = chaveData(new Date());
   const [bDataInicio, setBDataInicio] = useState(hojeKey);
@@ -87,8 +90,24 @@ export function HorariosClient({
     });
   };
 
-  const adicionarHorario = () =>
-    executar(() => criarHorarioAction({ diaSemana, horaInicio, horaFim }));
+  const adicionarHorario = () => {
+    setErro(null);
+    if (comPausa) {
+      // Pausa (almoço): cria duas janelas — manhã e tarde — com o intervalo livre.
+      if (!(horaInicio < pausaInicio && pausaInicio < pausaFim && pausaFim < horaFim)) {
+        setErro("A pausa tem de ficar dentro do horário (início < pausa < fim).");
+        return;
+      }
+      executar(() =>
+        criarHorariosAction([
+          { diaSemana, horaInicio, horaFim: pausaInicio },
+          { diaSemana, horaInicio: pausaFim, horaFim },
+        ]),
+      );
+      return;
+    }
+    executar(() => criarHorariosAction([{ diaSemana, horaInicio, horaFim }]));
+  };
 
   const adicionarBloqueio = () => {
     setErro(null);
@@ -122,32 +141,32 @@ export function HorariosClient({
 
   return (
     <section className="lg:min-h-screen">
-      <header className="border-b border-stone-200 bg-white px-5 py-5">
-        <h2 className="text-2xl font-semibold text-stone-950">Horários e bloqueios</h2>
+      <header className="border-b border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 px-5 py-5">
+        <h2 className="text-2xl font-semibold text-stone-950 dark:text-stone-100">Horários e bloqueios</h2>
       </header>
 
-      {erro ? <p className="px-5 pt-4 text-sm font-medium text-red-700">{erro}</p> : null}
+      {erro ? <p className="px-5 pt-4 text-sm font-medium text-red-700 dark:text-red-400">{erro}</p> : null}
 
       <div className="grid gap-6 p-5 xl:grid-cols-2">
         {/* Horários de funcionamento */}
-        <div className="rounded-lg border border-stone-200 bg-white p-5">
-          <h3 className="flex items-center gap-2 font-semibold text-stone-950">
+        <div className="rounded-lg border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 p-5">
+          <h3 className="flex items-center gap-2 font-semibold text-stone-950 dark:text-stone-100">
             <Clock size={17} />
             Horário de funcionamento
           </h3>
 
           <div className="mt-4 grid gap-2">
             {horarios.length === 0 ? (
-              <p className="text-sm text-stone-500">Sem janelas definidas.</p>
+              <p className="text-sm text-stone-500 dark:text-stone-400">Sem janelas definidas.</p>
             ) : (
               horarios.map((h) => (
                 <div
                   key={h.id}
-                  className="flex items-center justify-between rounded-md border border-stone-200 px-3 py-2 text-sm"
+                  className="flex items-center justify-between rounded-md border border-stone-200 dark:border-stone-800 px-3 py-2 text-sm"
                 >
                   <span>
-                    <span className="font-medium text-stone-800">{DIAS[h.diaSemana]}</span>
-                    <span className="text-stone-500">
+                    <span className="font-medium text-stone-800 dark:text-stone-300">{DIAS[h.diaSemana]}</span>
+                    <span className="text-stone-500 dark:text-stone-400">
                       {" "}
                       · {h.horaInicio}–{h.horaFim}
                     </span>
@@ -156,7 +175,7 @@ export function HorariosClient({
                     onClick={() => executar(() => apagarHorarioAction(h.id))}
                     disabled={pending}
                     aria-label="Remover"
-                    className="rounded-md p-1 text-red-600 hover:bg-red-50 disabled:opacity-50"
+                    className="rounded-md p-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 disabled:opacity-50"
                   >
                     <Trash2 size={15} />
                   </button>
@@ -165,13 +184,13 @@ export function HorariosClient({
             )}
           </div>
 
-          <div className="mt-4 grid gap-3 border-t border-stone-200 pt-4 sm:grid-cols-[1fr_auto_auto_auto] sm:items-end">
-            <label className="text-sm font-medium text-stone-700">
+          <div className="mt-4 grid gap-3 border-t border-stone-200 dark:border-stone-800 pt-4 sm:grid-cols-[1fr_auto_auto] sm:items-end">
+            <label className="text-sm font-medium text-stone-700 dark:text-stone-300 sm:col-span-3">
               Dia
               <select
                 value={diaSemana}
                 onChange={(e) => setDiaSemana(Number(e.target.value))}
-                className="mt-2 h-10 w-full rounded-md border border-stone-300 bg-white px-3 text-sm"
+                className="mt-2 h-10 w-full rounded-md border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-950 px-3 text-sm dark:text-stone-100"
               >
                 {DIAS.map((dia, index) => (
                   <option key={dia} value={index}>
@@ -180,15 +199,42 @@ export function HorariosClient({
                 ))}
               </select>
             </label>
-            <label className="text-sm font-medium text-stone-700">
-              Início
+            <label className="text-sm font-medium text-stone-700 dark:text-stone-300">
+              {comPausa ? "Abre" : "Início"}
               <Input type="time" className="mt-2" value={horaInicio} onChange={(e) => setHoraInicio(e.target.value)} />
             </label>
-            <label className="text-sm font-medium text-stone-700">
-              Fim
+            <label className="text-sm font-medium text-stone-700 dark:text-stone-300">
+              {comPausa ? "Fecha" : "Fim"}
               <Input type="time" className="mt-2" value={horaFim} onChange={(e) => setHoraFim(e.target.value)} />
             </label>
-            <Button type="button" disabled={pending} onClick={adicionarHorario}>
+
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-stone-700 dark:text-stone-300 sm:col-span-3">
+              <input
+                type="checkbox"
+                checked={comPausa}
+                onChange={(e) => setComPausa(e.target.checked)}
+                className="h-4 w-4 rounded border-stone-300 dark:border-stone-600 dark:bg-stone-900"
+              />
+              Com pausa de almoço
+            </label>
+
+            {comPausa ? (
+              <div className="grid grid-cols-2 gap-3 sm:col-span-3">
+                <label className="text-xs font-medium uppercase tracking-wide text-stone-500 dark:text-stone-400">
+                  Pausa começa
+                  <Input type="time" className="mt-1.5" value={pausaInicio} onChange={(e) => setPausaInicio(e.target.value)} />
+                </label>
+                <label className="text-xs font-medium uppercase tracking-wide text-stone-500 dark:text-stone-400">
+                  Pausa termina
+                  <Input type="time" className="mt-1.5" value={pausaFim} onChange={(e) => setPausaFim(e.target.value)} />
+                </label>
+                <p className="text-xs text-stone-400 dark:text-stone-500 sm:col-span-2">
+                  Cria duas janelas: {horaInicio}–{pausaInicio} e {pausaFim}–{horaFim}.
+                </p>
+              </div>
+            ) : null}
+
+            <Button type="button" disabled={pending} onClick={adicionarHorario} className="sm:col-span-3">
               <Plus size={16} />
               Adicionar
             </Button>
@@ -196,32 +242,32 @@ export function HorariosClient({
         </div>
 
         {/* Bloqueios */}
-        <div className="rounded-lg border border-stone-200 bg-white p-5">
-          <h3 className="flex items-center gap-2 font-semibold text-stone-950">
+        <div className="rounded-lg border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 p-5">
+          <h3 className="flex items-center gap-2 font-semibold text-stone-950 dark:text-stone-100">
             <CalendarOff size={17} />
             Bloqueios de calendário
           </h3>
 
           <div className="mt-4 grid gap-2">
             {bloqueios.length === 0 ? (
-              <p className="text-sm text-stone-500">Sem bloqueios futuros.</p>
+              <p className="text-sm text-stone-500 dark:text-stone-400">Sem bloqueios futuros.</p>
             ) : (
               bloqueios.map((b) => (
                 <div
                   key={b.id}
-                  className="flex items-center justify-between rounded-md border border-stone-200 px-3 py-2 text-sm"
+                  className="flex items-center justify-between rounded-md border border-stone-200 dark:border-stone-800 px-3 py-2 text-sm"
                 >
                   <span>
-                    <span className="font-medium text-stone-800">
+                    <span className="font-medium text-stone-800 dark:text-stone-300">
                       {formatarBloqueio(b.dataInicio, b.dataFim)}
                     </span>
-                    {b.motivo ? <span className="text-stone-500"> · {b.motivo}</span> : null}
+                    {b.motivo ? <span className="text-stone-500 dark:text-stone-400"> · {b.motivo}</span> : null}
                   </span>
                   <button
                     onClick={() => executar(() => apagarBloqueioAction(b.id))}
                     disabled={pending}
                     aria-label="Remover"
-                    className="rounded-md p-1 text-red-600 hover:bg-red-50 disabled:opacity-50"
+                    className="rounded-md p-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 disabled:opacity-50"
                   >
                     <Trash2 size={15} />
                   </button>
@@ -230,21 +276,21 @@ export function HorariosClient({
             )}
           </div>
 
-          <div className="mt-4 grid gap-3 border-t border-stone-200 pt-4">
-            <p className="text-sm font-medium text-stone-700">Novo bloqueio</p>
+          <div className="mt-4 grid gap-3 border-t border-stone-200 dark:border-stone-800 pt-4">
+            <p className="text-sm font-medium text-stone-700 dark:text-stone-300">Novo bloqueio</p>
 
-            <label className="flex cursor-pointer items-center gap-2 text-sm text-stone-700">
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-stone-700 dark:text-stone-300">
               <input
                 type="checkbox"
                 checked={bDiaInteiro}
                 onChange={(e) => setBDiaInteiro(e.target.checked)}
-                className="h-4 w-4 rounded border-stone-300"
+                className="h-4 w-4 rounded border-stone-300 dark:border-stone-600 dark:bg-stone-900"
               />
               Dia(s) inteiro(s)
             </label>
 
             <div className="grid gap-3 sm:grid-cols-2">
-              <label className="text-xs font-medium uppercase tracking-wide text-stone-500">
+              <label className="text-xs font-medium uppercase tracking-wide text-stone-500 dark:text-stone-400">
                 De
                 <Input
                   type="date"
@@ -269,7 +315,7 @@ export function HorariosClient({
                 ) : null}
               </label>
 
-              <label className="text-xs font-medium uppercase tracking-wide text-stone-500">
+              <label className="text-xs font-medium uppercase tracking-wide text-stone-500 dark:text-stone-400">
                 Até
                 <Input
                   type="date"
@@ -289,7 +335,7 @@ export function HorariosClient({
               </label>
             </div>
 
-            <label className="text-sm font-medium text-stone-700">
+            <label className="text-sm font-medium text-stone-700 dark:text-stone-300">
               Motivo (visível ao cliente)
               <Input
                 className="mt-2"

@@ -16,7 +16,9 @@ export function SidebarNav() {
             key={href}
             href={href}
             className={`flex items-center gap-3 rounded-md px-3 py-2 transition ${
-              ativo ? "bg-stone-100 font-medium text-stone-950" : "text-stone-700 hover:bg-stone-100"
+              ativo
+                ? "bg-stone-100 font-medium text-stone-950 dark:bg-stone-800 dark:text-stone-100"
+                : "text-stone-700 hover:bg-stone-100 dark:text-stone-400 dark:hover:bg-stone-800"
             }`}
           >
             <Icon size={17} />

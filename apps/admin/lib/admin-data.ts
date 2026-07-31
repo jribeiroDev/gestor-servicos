@@ -3,6 +3,7 @@ import {
   getConfigNotificacao,
   listBloqueios,
   listHorarios,
+  listEquipa,
   listReservasIntervalo,
   listReservasPorData,
   listReservasTodas,
@@ -10,10 +11,12 @@ import {
   type BloqueioCalendario,
   type ConfiguracaoNotificacao,
   type HorarioFuncionamento,
+  type MembroEquipa,
   type ReservaComServico,
   type ReservaEstado,
   type Servico,
 } from "@gestor/database";
+import { addDays, dateKey } from "@gestor/utils";
 
 export type ReservaAgendaView = {
   id: string;
@@ -61,6 +64,62 @@ export async function fetchHorarios(): Promise<HorarioFuncionamento[]> {
 
 export async function fetchBloqueios(desde: string): Promise<BloqueioCalendario[]> {
   return listBloqueios(createServiceRoleClient(), { from: desde });
+}
+
+export type DashboardData = {
+  dia: string;
+  reservasDia: ReservaAgendaView[];
+  proximas: ReservaAgendaView[];
+  kpis: {
+    total: number;
+    pendentes: number;
+    concluidas: number;
+    receita: number;
+  };
+};
+
+const ESTADOS_ATIVOS: ReservaEstado[] = ["pendente", "confirmada"];
+
+/**
+ * Dados do painel para um dia específico. Os 4 KPIs e a lista de reservas são
+ * referentes a `dia`; as "próximas marcações" são sempre relativas ao dia de
+ * hoje real (agenda futura), independentemente do dia que se está a ver.
+ */
+export async function fetchDashboard(dia: string): Promise<DashboardData> {
+  const client = createServiceRoleClient();
+  const hojeReal = dateKey(new Date());
+  const to = dateKey(addDays(new Date(), 30));
+
+  const [doDia, futuras] = await Promise.all([
+    listReservasPorData(client, dia),
+    listReservasIntervalo(client, hojeReal, to),
+  ]);
+
+  const proximas = futuras
+    .filter((r) => r.data > hojeReal && ESTADOS_ATIVOS.includes(r.estado))
+    .slice(0, 6);
+
+  const concluidas = doDia.filter((r) => r.estado === "concluida");
+  const receita = concluidas.reduce((acc, r) => acc + (r.servico?.preco ?? 0), 0);
+
+  return {
+    dia,
+    reservasDia: doDia.filter((r) => r.estado !== "cancelada").map(mapReservaAgenda),
+    proximas: proximas.map(mapReservaAgenda),
+    kpis: {
+      total: doDia.filter((r) => r.estado !== "cancelada").length,
+      pendentes: doDia.filter((r) => r.estado === "pendente").length,
+      concluidas: concluidas.length,
+      receita,
+    },
+  };
+}
+
+export type EquipaView = { id: string; nome: string; fotoUrl: string | null };
+
+export async function fetchEquipa(): Promise<EquipaView[]> {
+  const membros = await listEquipa(createServiceRoleClient());
+  return membros.map((m) => ({ id: m.id, nome: m.nome, fotoUrl: m.foto_url }));
 }
 
 export type ClienteAgregado = {

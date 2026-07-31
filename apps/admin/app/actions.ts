@@ -5,10 +5,12 @@ import {
   apagarBloqueio,
   apagarHorario,
   atualizarEstadoReserva,
+  createMembroEquipa,
   criarBloqueio,
   criarHorario,
   createServico,
   createServiceRoleClient,
+  deleteMembroEquipa,
   deleteServico,
   updateConfigNotificacao,
   updateServico,
@@ -18,8 +20,19 @@ import {
   type ServicoUpdate,
 } from "@gestor/database";
 import { requireUser } from "../lib/auth";
-import { fetchReservasIntervalo, mapReservaAgenda, type ReservaAgendaView } from "../lib/admin-data";
+import {
+  fetchDashboard,
+  fetchReservasIntervalo,
+  mapReservaAgenda,
+  type DashboardData,
+  type ReservaAgendaView,
+} from "../lib/admin-data";
 import { enviarPush, notificarReservaPorToken } from "../lib/push";
+
+export async function getDashboardAction(dia: string): Promise<DashboardData> {
+  await requireUser();
+  return fetchDashboard(dia);
+}
 
 export async function getReservasIntervaloAction(from: string, to: string): Promise<ReservaAgendaView[]> {
   await requireUser();
@@ -37,7 +50,6 @@ export async function criarServicoAction(input: {
   duracaoMinutos: number;
   preco: number | null;
   ativo: boolean;
-  ordem: number;
 }): Promise<ActionResult> {
   await requireUser();
   const nome = input.nome.trim();
@@ -53,7 +65,6 @@ export async function criarServicoAction(input: {
     duracao_minutos: Math.round(input.duracaoMinutos),
     preco: input.preco,
     ativo: input.ativo,
-    ordem: Math.round(input.ordem),
   };
   try {
     await createServico(createServiceRoleClient(), payload);
@@ -72,7 +83,6 @@ export async function atualizarServicoAction(
     duracaoMinutos: number;
     preco: number | null;
     ativo: boolean;
-    ordem: number;
   },
 ): Promise<ActionResult> {
   await requireUser();
@@ -86,7 +96,6 @@ export async function atualizarServicoAction(
     duracao_minutos: Math.round(patch.duracaoMinutos),
     preco: patch.preco,
     ativo: patch.ativo,
-    ordem: Math.round(patch.ordem),
   };
   try {
     await updateServico(createServiceRoleClient(), id, payload);
@@ -119,6 +128,54 @@ export async function apagarServicoAction(id: string): Promise<ActionResult> {
   }
 }
 
+/* ----------------------------------------------------------------- Equipa */
+
+export async function criarMembroEquipaAction(formData: FormData): Promise<ActionResult> {
+  await requireUser();
+  const nome = String(formData.get("nome") ?? "").trim();
+  if (nome.length < 2) {
+    return { ok: false, erro: "Indique o nome do membro." };
+  }
+  const foto = formData.get("foto");
+  const client = createServiceRoleClient();
+  let fotoUrl: string | null = null;
+  try {
+    if (foto instanceof File && foto.size > 0) {
+      if (!foto.type.startsWith("image/")) {
+        return { ok: false, erro: "A foto tem de ser uma imagem." };
+      }
+      if (foto.size > 5 * 1024 * 1024) {
+        return { ok: false, erro: "A foto não pode exceder 5 MB." };
+      }
+      const ext = foto.name.includes(".") ? foto.name.split(".").pop() : "jpg";
+      const caminho = `${crypto.randomUUID()}.${ext}`;
+      const { error: erroUpload } = await client.storage
+        .from("equipa")
+        .upload(caminho, foto, { contentType: foto.type, upsert: false });
+      if (erroUpload) {
+        return { ok: false, erro: `Falha no upload da foto: ${erroUpload.message}` };
+      }
+      fotoUrl = client.storage.from("equipa").getPublicUrl(caminho).data.publicUrl;
+    }
+    await createMembroEquipa(client, { nome, foto_url: fotoUrl });
+    revalidatePath("/equipa");
+    return { ok: true };
+  } catch (erro) {
+    return { ok: false, erro: (erro as Error).message || "Não foi possível adicionar o membro." };
+  }
+}
+
+export async function apagarMembroEquipaAction(id: string): Promise<ActionResult> {
+  await requireUser();
+  try {
+    await deleteMembroEquipa(createServiceRoleClient(), id);
+    revalidatePath("/equipa");
+    return { ok: true };
+  } catch {
+    return { ok: false, erro: "Não foi possível remover o membro." };
+  }
+}
+
 /* --------------------------------------------------------------- Reservas */
 
 const ESTADO_MENSAGEM: Partial<Record<ReservaEstado, { title: string; body: string }>> = {
@@ -136,6 +193,7 @@ export async function definirEstadoReservaAction(
   try {
     const reserva = await atualizarEstadoReserva(createServiceRoleClient(), id, estado);
     revalidatePath("/");
+    revalidatePath("/agenda");
 
     const mensagem = ESTADO_MENSAGEM[estado];
     if (mensagem) {
@@ -153,24 +211,37 @@ export async function definirEstadoReservaAction(
 
 /* ----------------------------------------------------- Horários / Bloqueios */
 
-export async function criarHorarioAction(input: {
-  diaSemana: number;
-  horaInicio: string;
-  horaFim: string;
-}): Promise<ActionResult> {
+export async function criarHorariosAction(
+  janelas: { diaSemana: number; horaInicio: string; horaFim: string }[],
+): Promise<ActionResult> {
   await requireUser();
-  if (input.diaSemana < 0 || input.diaSemana > 6) {
-    return { ok: false, erro: "Dia da semana inválido." };
+  if (janelas.length === 0) {
+    return { ok: false, erro: "Sem horários para adicionar." };
   }
-  if (!input.horaInicio || !input.horaFim || input.horaInicio >= input.horaFim) {
-    return { ok: false, erro: "A hora de início tem de ser anterior à de fim." };
+  for (const janela of janelas) {
+    if (janela.diaSemana < 0 || janela.diaSemana > 6) {
+      return { ok: false, erro: "Dia da semana inválido." };
+    }
+    if (!janela.horaInicio || !janela.horaFim || janela.horaInicio >= janela.horaFim) {
+      return { ok: false, erro: "A hora de início tem de ser anterior à de fim." };
+    }
+  }
+  // Janelas ordenadas não se podem sobrepor (ex.: manhã tem de acabar antes da tarde).
+  const ordenadas = [...janelas].sort((a, b) => a.horaInicio.localeCompare(b.horaInicio));
+  for (let i = 1; i < ordenadas.length; i++) {
+    if (ordenadas[i].horaInicio < ordenadas[i - 1].horaFim) {
+      return { ok: false, erro: "As janelas (manhã/tarde) não se podem sobrepor." };
+    }
   }
   try {
-    await criarHorario(createServiceRoleClient(), {
-      dia_semana: input.diaSemana,
-      hora_inicio: input.horaInicio,
-      hora_fim: input.horaFim,
-    });
+    const client = createServiceRoleClient();
+    for (const janela of janelas) {
+      await criarHorario(client, {
+        dia_semana: janela.diaSemana,
+        hora_inicio: janela.horaInicio,
+        hora_fim: janela.horaFim,
+      });
+    }
     revalidatePath("/horarios");
     return { ok: true };
   } catch {

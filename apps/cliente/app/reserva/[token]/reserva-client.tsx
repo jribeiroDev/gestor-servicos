@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Input } from "@gestor/ui";
+import { Button, Input, ThemeToggle } from "@gestor/ui";
 import type { ReservaEstado } from "@gestor/database";
 import { dateKey, type Slot } from "@gestor/utils";
 import {
@@ -37,11 +37,11 @@ const ESTADO_LABEL: Record<ReservaEstado, string> = {
 };
 
 const ESTADO_CLASSE: Record<ReservaEstado, string> = {
-  pendente: "bg-amber-50 text-amber-800",
-  confirmada: "bg-teal-50 text-teal-800",
-  cancelada: "bg-red-50 text-red-700",
-  concluida: "bg-stone-100 text-stone-700",
-  no_show: "bg-red-50 text-red-700",
+  pendente: "bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300",
+  confirmada: "bg-teal-50 text-teal-800 dark:bg-teal-950/50 dark:text-teal-300",
+  cancelada: "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300",
+  concluida: "bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-300",
+  no_show: "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300",
 };
 
 function parseDia(dia: string): Date {
@@ -214,49 +214,52 @@ export function ReservaClient({ reserva: reservaInicial, novo }: { reserva: Rese
 
   return (
     <main className="mx-auto flex min-h-screen max-w-3xl flex-col justify-center gap-4 px-5 py-10">
-      <Link
-        href="/"
-        className="inline-flex items-center gap-2 self-start text-sm font-medium text-stone-600 transition hover:text-stone-900"
-      >
-        <ArrowLeft size={16} />
-        Voltar à página principal
-      </Link>
+      <div className="flex items-center justify-between gap-2">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 self-start text-sm font-medium text-stone-600 transition hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-100"
+        >
+          <ArrowLeft size={16} />
+          Voltar à página principal
+        </Link>
+        <ThemeToggle />
+      </div>
 
       {novo ? (
-        <div className="rounded-lg border border-teal-200 bg-teal-50 p-4 text-sm font-medium text-teal-800">
+        <div className="rounded-lg border border-teal-200 bg-teal-50 p-4 text-sm font-medium text-teal-800 dark:border-teal-900/60 dark:bg-teal-950/50 dark:text-teal-300">
           Reserva criada com sucesso! Guarde este link para gerir a sua marcação.
         </div>
       ) : null}
 
-      <section className="rounded-lg border border-stone-200 bg-white p-6">
+      <section className="rounded-lg border border-stone-200 bg-white p-6 dark:border-stone-800 dark:bg-stone-900">
         <div className="flex items-center justify-between">
-          <p className="flex items-center gap-1.5 text-sm font-medium text-teal-700">
+          <p className="flex items-center gap-1.5 text-sm font-medium text-teal-700 dark:text-teal-400">
             Reserva
-            {aSincronizar ? <RefreshCw size={12} className="animate-spin text-teal-400" /> : null}
+            {aSincronizar ? <RefreshCw size={12} className="animate-spin text-teal-400 dark:text-teal-500" /> : null}
           </p>
           <span className={`rounded-md px-2 py-1 text-xs font-medium ${ESTADO_CLASSE[reserva.estado]}`}>
             {ESTADO_LABEL[reserva.estado]}
           </span>
         </div>
-        <h1 className="mt-2 text-2xl font-semibold text-stone-950">{reserva.servicoNome}</h1>
+        <h1 className="mt-2 text-2xl font-semibold text-stone-950 dark:text-stone-100">{reserva.servicoNome}</h1>
         <dl className="mt-4 grid gap-2 text-sm">
           <div className="flex justify-between">
-            <dt className="text-stone-500">Cliente</dt>
-            <dd className="font-medium text-stone-800">{reserva.nomeCliente}</dd>
+            <dt className="text-stone-500 dark:text-stone-400">Cliente</dt>
+            <dd className="font-medium text-stone-800 dark:text-stone-300">{reserva.nomeCliente}</dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-stone-500">Data</dt>
-            <dd className="font-medium capitalize text-stone-800">{formatarData(reserva.data)}</dd>
+            <dt className="text-stone-500 dark:text-stone-400">Data</dt>
+            <dd className="font-medium capitalize text-stone-800 dark:text-stone-300">{formatarData(reserva.data)}</dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-stone-500">Hora</dt>
-            <dd className="font-medium text-stone-800">
+            <dt className="text-stone-500 dark:text-stone-400">Hora</dt>
+            <dd className="font-medium text-stone-800 dark:text-stone-300">
               {reserva.horaInicio} – {reserva.horaFim}
             </dd>
           </div>
         </dl>
 
-        {erro ? <p className="mt-4 text-sm font-medium text-red-700">{erro}</p> : null}
+        {erro ? <p className="mt-4 text-sm font-medium text-red-700 dark:text-red-400">{erro}</p> : null}
 
         {ativa ? (
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">
@@ -295,11 +298,11 @@ export function ReservaClient({ reserva: reservaInicial, novo }: { reserva: Rese
             </Button>
           </div>
         ) : (
-          <p className="mt-6 text-sm text-stone-500">Esta reserva já não pode ser alterada.</p>
+          <p className="mt-6 text-sm text-stone-500 dark:text-stone-400">Esta reserva já não pode ser alterada.</p>
         )}
 
-        <div className="mt-6 border-t border-stone-200 pt-4">
-          <p className="mb-2 flex items-center gap-1.5 text-sm text-stone-500">
+        <div className="mt-6 border-t border-stone-200 pt-4 dark:border-stone-800">
+          <p className="mb-2 flex items-center gap-1.5 text-sm text-stone-500 dark:text-stone-400">
             <Link2 size={14} />
             Link desta reserva — guarde-o para voltar mais tarde
           </p>
@@ -322,38 +325,38 @@ export function ReservaClient({ reserva: reservaInicial, novo }: { reserva: Rese
               {copiado ? "Copiado!" : "Copiar"}
             </Button>
           </div>
-          {avisoCopia ? <p className="mt-2 text-xs text-stone-500">{avisoCopia}</p> : null}
+          {avisoCopia ? <p className="mt-2 text-xs text-stone-500 dark:text-stone-400">{avisoCopia}</p> : null}
         </div>
 
         {ativa ? (
-          <div className="mt-6 border-t border-stone-200 pt-4">
-            <p className="mb-3 text-sm text-stone-500">Quer ser avisado sobre alterações a esta reserva?</p>
+          <div className="mt-6 border-t border-stone-200 pt-4 dark:border-stone-800">
+            <p className="mb-3 text-sm text-stone-500 dark:text-stone-400">Quer ser avisado sobre alterações a esta reserva?</p>
             <NotificacoesButton token={reserva.token} />
           </div>
         ) : null}
       </section>
 
       {aReagendar && ativa ? (
-        <section className="rounded-lg border border-stone-200 bg-white p-6">
+        <section className="rounded-lg border border-stone-200 bg-white p-6 dark:border-stone-800 dark:bg-stone-900">
           <div className="mb-5 flex items-center justify-between">
-            <button aria-label="Dia anterior" onClick={() => shiftDay(-1)} className="rounded-md border border-stone-300 p-2">
+            <button aria-label="Dia anterior" onClick={() => shiftDay(-1)} className="rounded-md border border-stone-300 p-2 dark:border-stone-700">
               <ChevronLeft size={18} />
             </button>
             <div className="text-center">
-              <p className="text-sm text-stone-500">Novo dia</p>
-              <h2 className="text-lg font-semibold capitalize text-stone-950">
+              <p className="text-sm text-stone-500 dark:text-stone-400">Novo dia</p>
+              <h2 className="text-lg font-semibold capitalize text-stone-950 dark:text-stone-100">
                 {date.toLocaleDateString("pt-PT", { weekday: "long", day: "2-digit", month: "long" })}
               </h2>
             </div>
-            <button aria-label="Dia seguinte" onClick={() => shiftDay(1)} className="rounded-md border border-stone-300 p-2">
+            <button aria-label="Dia seguinte" onClick={() => shiftDay(1)} className="rounded-md border border-stone-300 p-2 dark:border-stone-700">
               <ChevronRight size={18} />
             </button>
           </div>
 
           {slots.length === 0 && loadingSlots ? (
-            <p className="py-6 text-center text-sm text-stone-500">A carregar horários…</p>
+            <p className="py-6 text-center text-sm text-stone-500 dark:text-stone-400">A carregar horários…</p>
           ) : slots.length === 0 ? (
-            <p className="py-6 text-center text-sm text-stone-500">Sem horários disponíveis neste dia.</p>
+            <p className="py-6 text-center text-sm text-stone-500 dark:text-stone-400">Sem horários disponíveis neste dia.</p>
           ) : (
             <div
               aria-busy={loadingSlots}
@@ -375,10 +378,10 @@ export function ReservaClient({ reserva: reservaInicial, novo }: { reserva: Rese
                   }
                   className={`inline-flex h-11 items-center justify-center gap-1.5 rounded-md border text-sm font-medium transition disabled:cursor-not-allowed ${
                     novoSlot === slot.startsAt
-                      ? "border-teal-700 bg-teal-700 text-white"
+                      ? "border-teal-700 bg-teal-700 text-white dark:border-teal-500 dark:bg-teal-600"
                       : slot.blockedReason
-                        ? "border-amber-200 bg-amber-50 text-amber-700"
-                        : "border-stone-300 bg-white text-stone-800 disabled:bg-stone-100 disabled:text-stone-400"
+                        ? "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-300"
+                        : "border-stone-300 bg-white text-stone-800 disabled:bg-stone-100 disabled:text-stone-400 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-300 dark:disabled:bg-stone-800 dark:disabled:text-stone-600"
                   }`}
                 >
                   {slot.blockedReason ? <Ban size={13} /> : null}

@@ -62,9 +62,9 @@ export function NotificacoesClient({ config }: { config: ConfigView }) {
 
   return (
     <section className="lg:min-h-screen">
-      <header className="border-b border-stone-200 bg-white px-5 py-5">
-        <h2 className="text-2xl font-semibold text-stone-950">Notificações</h2>
-        <p className="mt-1 text-sm text-stone-500">Escolha os canais e os destinos das notificações.</p>
+      <header className="border-b border-stone-200 bg-white px-5 py-5 dark:border-stone-800 dark:bg-stone-900">
+        <h2 className="text-2xl font-semibold text-stone-950 dark:text-stone-100">Notificações</h2>
+        <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">Escolha os canais e os destinos das notificações.</p>
       </header>
 
       <div className="grid max-w-2xl gap-4 p-5">
@@ -86,7 +86,7 @@ export function NotificacoesClient({ config }: { config: ConfigView }) {
           ativo={estado.email}
           onToggle={(v) => set("email", v)}
         >
-          <label className="mt-3 block text-sm font-medium text-stone-700">
+          <label className="mt-3 block text-sm font-medium text-stone-700 dark:text-stone-300">
             Email de envio/receção
             <Input
               type="email"
@@ -105,7 +105,7 @@ export function NotificacoesClient({ config }: { config: ConfigView }) {
           ativo={estado.whatsapp}
           onToggle={(v) => set("whatsapp", v)}
         >
-          <label className="mt-3 block text-sm font-medium text-stone-700">
+          <label className="mt-3 block text-sm font-medium text-stone-700 dark:text-stone-300">
             Número de WhatsApp
             <Input
               className="mt-2"
@@ -123,7 +123,7 @@ export function NotificacoesClient({ config }: { config: ConfigView }) {
           ativo={estado.sms}
           onToggle={(v) => set("sms", v)}
         >
-          <label className="mt-3 block text-sm font-medium text-stone-700">
+          <label className="mt-3 block text-sm font-medium text-stone-700 dark:text-stone-300">
             Número de SMS
             <Input
               className="mt-2"
@@ -135,7 +135,7 @@ export function NotificacoesClient({ config }: { config: ConfigView }) {
         </Canal>
 
         {msg ? (
-          <p className={`text-sm font-medium ${msg.tipo === "ok" ? "text-teal-700" : "text-red-700"}`}>{msg.texto}</p>
+          <p className={`text-sm font-medium ${msg.tipo === "ok" ? "text-teal-700 dark:text-teal-400" : "text-red-700 dark:text-red-400"}`}>{msg.texto}</p>
         ) : null}
 
         <div>
@@ -163,17 +163,17 @@ function Canal({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="rounded-lg border border-stone-200 bg-white p-4">
+    <div className="rounded-lg border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-900">
       <label className="flex cursor-pointer items-center justify-between">
         <span>
-          <span className="block font-medium text-stone-900">{nome}</span>
-          <span className="mt-0.5 block text-sm text-stone-500">{descricao}</span>
+          <span className="block font-medium text-stone-900 dark:text-stone-100">{nome}</span>
+          <span className="mt-0.5 block text-sm text-stone-500 dark:text-stone-400">{descricao}</span>
         </span>
         <input
           type="checkbox"
           checked={ativo}
           onChange={(e) => onToggle(e.target.checked)}
-          className="h-5 w-5 rounded border-stone-300"
+          className="h-5 w-5 rounded border-stone-300 dark:border-stone-600 dark:bg-stone-900"
         />
       </label>
       {ativo && children ? children : null}

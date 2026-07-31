@@ -25,7 +25,7 @@ export function LogoutButton() {
       type="button"
       onClick={sair}
       disabled={aSair}
-      className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-stone-600 transition hover:bg-stone-100 disabled:opacity-50"
+      className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-stone-600 transition hover:bg-stone-100 disabled:opacity-50 dark:text-stone-400 dark:hover:bg-stone-800"
     >
       <LogOut size={17} />
       {aSair ? "A sair…" : "Terminar sessão"}

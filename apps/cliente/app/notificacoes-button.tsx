@@ -147,20 +147,20 @@ export function NotificacoesButton({ token }: { token?: string }) {
         disabled={desativado}
         className={`inline-flex h-10 items-center gap-2 self-start rounded-md border px-3 text-sm transition disabled:cursor-not-allowed disabled:opacity-70 ${
           estado === "ativo"
-            ? "border-teal-700 bg-teal-50 text-teal-800 hover:bg-teal-100"
-            : "border-stone-300 text-stone-700 hover:bg-stone-100"
+            ? "border-teal-700 bg-teal-50 text-teal-800 hover:bg-teal-100 dark:border-teal-500 dark:bg-teal-950/50 dark:text-teal-300 dark:hover:bg-teal-900/40"
+            : "border-stone-300 text-stone-700 hover:bg-stone-100 dark:border-stone-700 dark:text-stone-300 dark:hover:bg-stone-800"
         }`}
       >
         <Icone size={16} />
         {rotulo[estado]}
       </button>
       {estado === "erro" ? (
-        <span className="text-xs text-red-600">
+        <span className="text-xs text-red-600 dark:text-red-400">
           {detalheErro ?? "Não foi possível concluir. Verifique as permissões do browser."}
         </span>
       ) : null}
       {estado === "sem-config" ? (
-        <span className="text-xs text-stone-500">O envio de push ainda não está configurado no servidor.</span>
+        <span className="text-xs text-stone-500 dark:text-stone-400">O envio de push ainda não está configurado no servidor.</span>
       ) : null}
     </div>
   );

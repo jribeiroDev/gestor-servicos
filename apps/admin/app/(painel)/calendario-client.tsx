@@ -29,11 +29,11 @@ const ESTADO_LABEL: Record<ReservaEstado, string> = {
 };
 
 const ESTADO_CLASSE: Record<ReservaEstado, string> = {
-  pendente: "bg-amber-50 text-amber-800",
-  confirmada: "bg-teal-50 text-teal-800",
-  cancelada: "bg-red-50 text-red-700",
-  concluida: "bg-stone-100 text-stone-700",
-  no_show: "bg-red-50 text-red-700",
+  pendente: "bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300",
+  confirmada: "bg-teal-50 dark:bg-teal-950/50 text-teal-800 dark:text-teal-300",
+  cancelada: "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300",
+  concluida: "bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300",
+  no_show: "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300",
 };
 
 const ESTADO_PONTO: Record<ReservaEstado, string> = {
@@ -90,7 +90,6 @@ export function CalendarioClient({
   const [carregando, setCarregando] = useState(false);
   const [pending, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
-  const [emDireto, setEmDireto] = useState(false);
 
   // Refs para os handlers de realtime/polling lerem sempre o dia/vista atuais
   // sem precisar de resubscrever o canal a cada troca.
@@ -103,7 +102,7 @@ export function CalendarioClient({
 
   // Mantém o URL partilhável, sem provocar navegação nem refetch da rota.
   useEffect(() => {
-    window.history.replaceState(null, "", `/?d=${dia}&v=${vista}`);
+    window.history.replaceState(null, "", `/agenda?d=${dia}&v=${vista}`);
   }, [dia, vista]);
 
   // Busca silenciosa: atualiza os dados em memória, sem navegar nem recarregar a página.
@@ -142,9 +141,7 @@ export function CalendarioClient({
         .on("postgres_changes", { event: "*", schema: "public", table: "reservas" }, () => {
           void atualizar(diaRef.current, vistaRef.current);
         })
-        .subscribe((status) => {
-          setEmDireto(status === "SUBSCRIBED");
-        });
+        .subscribe();
     })();
 
     // Salvaguarda: garante frescura mesmo quando o realtime não entrega eventos.
@@ -244,15 +241,15 @@ export function CalendarioClient({
 
   return (
     <section className="lg:min-h-screen">
-      <header className="border-b border-stone-200 bg-white px-4 py-4 sm:px-5">
+      <header className="border-b border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 px-4 py-4 sm:px-5">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           {/* Navegação + período atual */}
           <div className="flex min-w-0 items-center gap-2">
-            <div className="flex shrink-0 overflow-hidden rounded-md border border-stone-300">
+            <div className="flex shrink-0 overflow-hidden rounded-md border border-stone-300 dark:border-stone-700">
               <button
                 aria-label="Anterior"
                 onClick={() => shift(-1)}
-                className="p-2 text-stone-600 transition hover:bg-stone-50"
+                className="p-2 text-stone-600 dark:text-stone-400 transition hover:bg-stone-50 dark:hover:bg-stone-800"
               >
                 <ChevronLeft size={18} />
               </button>
@@ -260,17 +257,17 @@ export function CalendarioClient({
               <button
                 aria-label="Seguinte"
                 onClick={() => shift(1)}
-                className="p-2 text-stone-600 transition hover:bg-stone-50"
+                className="p-2 text-stone-600 dark:text-stone-400 transition hover:bg-stone-50 dark:hover:bg-stone-800"
               >
                 <ChevronRight size={18} />
               </button>
             </div>
-            <h2 className="ml-1 truncate text-lg font-semibold capitalize text-stone-950 sm:text-xl">{titulo}</h2>
+            <h2 className="ml-1 truncate text-lg font-semibold capitalize text-stone-950 dark:text-stone-100 sm:text-xl">{titulo}</h2>
           </div>
 
           {/* Controlos */}
           <div className="flex flex-wrap items-center gap-2">
-            <div className="grid flex-1 grid-cols-3 gap-0.5 rounded-lg bg-stone-100 p-1 text-sm sm:flex sm:flex-none">
+            <div className="grid flex-1 grid-cols-3 gap-0.5 rounded-lg bg-stone-100 dark:bg-stone-800 p-1 text-sm sm:flex sm:flex-none">
               {(["dia", "semana", "mes"] as const).map((v) => (
                 <button
                   key={v}
@@ -279,8 +276,8 @@ export function CalendarioClient({
                   aria-pressed={vista === v}
                   className={`rounded-md px-3 py-1.5 font-medium capitalize transition ${
                     vista === v
-                      ? "bg-white text-stone-950 shadow-sm"
-                      : "text-stone-600 hover:text-stone-900"
+                      ? "bg-white dark:bg-stone-950 text-stone-950 dark:text-stone-100 shadow-sm"
+                      : "text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100"
                   }`}
                 >
                   {v === "mes" ? "Mês" : v}
@@ -289,42 +286,22 @@ export function CalendarioClient({
             </div>
 
             <div className="flex items-center gap-2">
-              <Button type="button" variant="secondary" onClick={() => irPara(hojeKey)}>
-                Hoje
-              </Button>
               <button
                 type="button"
                 onClick={() => atualizar(dia, vista)}
                 aria-label="Atualizar"
                 title="Atualizar agora"
-                className="inline-flex h-10 items-center gap-2 rounded-md border border-stone-300 px-3 text-sm text-stone-700 transition hover:bg-stone-50"
+                className="inline-flex h-10 items-center gap-2 rounded-md border border-stone-300 dark:border-stone-700 px-3 text-sm text-stone-700 dark:text-stone-300 transition hover:bg-stone-50 dark:hover:bg-stone-800"
               >
                 <RefreshCw size={15} className={pending || carregando ? "animate-spin" : ""} />
                 <span className="hidden sm:inline">Atualizar</span>
               </button>
-              <span
-                className={`inline-flex h-10 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium ${
-                  emDireto ? "bg-teal-50 text-teal-800" : "bg-stone-100 text-stone-500"
-                }`}
-                title={
-                  emDireto
-                    ? "A receber alterações em tempo real"
-                    : "Sem realtime — a atualizar automaticamente a cada 15s"
-                }
-              >
-                <span
-                  className={`h-2 w-2 rounded-full ${emDireto ? "animate-pulse bg-teal-600" : "bg-stone-400"}`}
-                  aria-hidden
-                />
-                <span className="hidden sm:inline">{emDireto ? "Em direto" : "Automático"}</span>
-              </span>
             </div>
           </div>
         </div>
 
         {/* Filtro por estado */}
-        <div className="mt-4 flex flex-wrap items-center gap-1.5 border-t border-stone-100 pt-3">
-          <span className="mr-1 text-xs font-medium uppercase tracking-wide text-stone-400">Mostrar</span>
+        <div className="mt-4 flex flex-wrap items-center gap-1.5 border-t border-stone-100 dark:border-stone-800 pt-3">
           {ESTADOS_FILTRO.map((estado) => {
             const ativo = estadosVisiveis.includes(estado);
             const total = contagens.get(estado) ?? 0;
@@ -336,13 +313,13 @@ export function CalendarioClient({
                 aria-pressed={ativo}
                 className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition ${
                   ativo
-                    ? "border-stone-300 bg-white text-stone-800"
-                    : "border-transparent bg-stone-100 text-stone-400 hover:text-stone-600"
+                    ? "border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-300"
+                    : "border-transparent bg-stone-100 dark:bg-stone-800 text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300"
                 }`}
               >
-                <span className={`h-1.5 w-1.5 rounded-full ${ativo ? ESTADO_PONTO[estado] : "bg-stone-300"}`} />
+                <span className={`h-1.5 w-1.5 rounded-full ${ativo ? ESTADO_PONTO[estado] : "bg-stone-300 dark:bg-stone-600"}`} />
                 {ESTADO_LABEL[estado]}
-                {total > 0 ? <span className={ativo ? "text-stone-500" : ""}>{total}</span> : null}
+                {total > 0 ? <span className={ativo ? "text-stone-500 dark:text-stone-400" : ""}>{total}</span> : null}
               </button>
             );
           })}
@@ -350,13 +327,13 @@ export function CalendarioClient({
       </header>
 
       <div className="grid gap-3 p-5">
-        {erro ? <p className="text-sm font-medium text-red-700">{erro}</p> : null}
+        {erro ? <p className="text-sm font-medium text-red-700 dark:text-red-400">{erro}</p> : null}
 
         {!estadosVisiveis.includes("pendente") && (contagens.get("pendente") ?? 0) > 0 ? (
           <button
             type="button"
             onClick={() => alternarEstado("pendente")}
-            className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-4 py-2.5 text-left text-sm text-amber-900 transition hover:bg-amber-100"
+            className="flex items-center gap-2 rounded-md border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/40 px-4 py-2.5 text-left text-sm text-amber-900 dark:text-amber-300 transition hover:bg-amber-100 dark:hover:bg-amber-900/30"
           >
             <Clock size={15} />
             <span>
@@ -391,13 +368,13 @@ export function CalendarioClient({
               onSelecionarDia={setDiaFocado}
             />
             <div className="mt-2">
-              <h3 className="mb-3 text-sm font-semibold capitalize text-stone-800">
+              <h3 className="mb-3 text-sm font-semibold capitalize text-stone-800 dark:text-stone-300">
                 {parseDia(diaAtivo).toLocaleDateString("pt-PT", {
                   weekday: "long",
                   day: "2-digit",
                   month: "long",
                 })}
-                <span className="ml-2 font-normal text-stone-500">
+                <span className="ml-2 font-normal text-stone-500 dark:text-stone-400">
                   {(porData.get(diaAtivo) ?? []).length} reserva(s)
                 </span>
               </h3>
@@ -422,19 +399,19 @@ function ReservaRow({
   onMudarEstado: (id: string, estado: ReservaEstado) => void;
 }) {
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-stone-200 bg-white p-4 md:grid md:grid-cols-[90px_1fr_auto] md:items-center md:gap-4">
-      <span className="flex items-center gap-2 text-sm font-medium text-stone-700">
+    <div className="flex flex-col gap-3 rounded-lg border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 p-4 md:grid md:grid-cols-[90px_1fr_auto] md:items-center md:gap-4">
+      <span className="flex items-center gap-2 text-sm font-medium text-stone-700 dark:text-stone-300">
         <Clock size={15} />
         {reserva.horaInicio}
       </span>
       <div>
         <div className="flex items-center gap-2">
-          <p className="font-medium text-stone-950">{reserva.nomeCliente}</p>
+          <p className="font-medium text-stone-950 dark:text-stone-100">{reserva.nomeCliente}</p>
           <span className={`rounded-md px-2 py-0.5 text-xs font-medium ${ESTADO_CLASSE[reserva.estado]}`}>
             {ESTADO_LABEL[reserva.estado]}
           </span>
         </div>
-        <p className="mt-1 flex flex-wrap items-center gap-x-3 text-sm text-stone-500">
+        <p className="mt-1 flex flex-wrap items-center gap-x-3 text-sm text-stone-500 dark:text-stone-400">
           <span>{reserva.servicoNome}</span>
           <span className="inline-flex items-center gap-1">
             <Phone size={13} />
@@ -469,7 +446,7 @@ function DiaLista({
   onMudarEstado: (id: string, estado: ReservaEstado) => void;
 }) {
   if (reservas.length === 0) {
-    return <p className="rounded-lg border border-stone-200 bg-white p-6 text-stone-600">Sem reservas neste dia.</p>;
+    return <p className="rounded-lg border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 p-6 text-stone-600 dark:text-stone-400">Sem reservas neste dia.</p>;
   }
   return (
     <>
@@ -507,18 +484,18 @@ function SemanaLista({
         return (
           <div key={key}>
             <button onClick={() => onSelecionarDia(key)} className="mb-2 flex items-center gap-2 text-left">
-              <span className={`text-sm font-semibold capitalize ${ehHoje ? "text-teal-700" : "text-stone-800"}`}>
+              <span className={`text-sm font-semibold capitalize ${ehHoje ? "text-teal-700 dark:text-teal-400" : "text-stone-800 dark:text-stone-300"}`}>
                 {DIAS_SEMANA_LONGO[data.getDay()]}, {data.getDate()}
               </span>
               {reservasDoDia.length > 0 ? (
-                <span className="rounded-md bg-stone-100 px-2 py-0.5 text-xs font-medium text-stone-600">
+                <span className="rounded-md bg-stone-100 dark:bg-stone-800 px-2 py-0.5 text-xs font-medium text-stone-600 dark:text-stone-400">
                   {reservasDoDia.length}
                 </span>
               ) : null}
             </button>
             <div className="grid gap-2">
               {reservasDoDia.length === 0 ? (
-                <p className="rounded-md border border-dashed border-stone-200 px-4 py-3 text-sm text-stone-400">
+                <p className="rounded-md border border-dashed border-stone-200 dark:border-stone-800 px-4 py-3 text-sm text-stone-400 dark:text-stone-500">
                   Sem reservas
                 </p>
               ) : (
@@ -550,8 +527,8 @@ function MesGrelha({
   const grelha = generateMonthGrid(parseDia(dia));
 
   return (
-    <div className="overflow-hidden rounded-lg border border-stone-200 bg-white">
-      <div className="grid grid-cols-7 border-b border-stone-200 bg-stone-50 text-center text-xs font-medium uppercase tracking-wide text-stone-400">
+    <div className="overflow-hidden rounded-lg border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900">
+      <div className="grid grid-cols-7 border-b border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-900 text-center text-xs font-medium uppercase tracking-wide text-stone-400 dark:text-stone-500">
         {DIAS_SEMANA_CURTO_SEG.map((label) => (
           <div key={label} className="py-2">
             {label}
@@ -569,26 +546,26 @@ function MesGrelha({
               key={key}
               onClick={() => onSelecionarDia(key)}
               aria-pressed={ehSelecionado}
-              className={`flex h-20 flex-col items-start gap-1 border-b border-r border-stone-100 p-1.5 text-left transition hover:bg-stone-50 sm:h-24 sm:p-2 ${
-                inMonth ? "bg-white" : "bg-stone-50/60"
-              } ${ehSelecionado ? "ring-2 ring-inset ring-teal-600" : ""}`}
+              className={`flex h-20 flex-col items-start gap-1 border-b border-r border-stone-100 dark:border-stone-800 p-1.5 text-left transition hover:bg-stone-50 dark:hover:bg-stone-800 sm:h-24 sm:p-2 ${
+                inMonth ? "bg-white dark:bg-stone-900" : "bg-stone-50/60 dark:bg-stone-900/40"
+              } ${ehSelecionado ? "ring-2 ring-inset ring-teal-600 dark:ring-teal-500" : ""}`}
             >
               <span
                 className={`inline-flex h-5 w-5 items-center justify-center rounded-full text-xs ${
-                  ehHoje ? "bg-teal-700 text-white" : inMonth ? "text-stone-700" : "text-stone-400"
+                  ehHoje ? "bg-teal-700 dark:bg-teal-600 text-white" : inMonth ? "text-stone-700 dark:text-stone-300" : "text-stone-400 dark:text-stone-500"
                 }`}
               >
                 {date.getDate()}
               </span>
               <div className="flex w-full flex-1 flex-col gap-0.5 overflow-hidden">
                 {reservasDoDia.slice(0, 2).map((reserva) => (
-                  <span key={reserva.id} className="flex items-center gap-1 truncate text-[11px] text-stone-600">
+                  <span key={reserva.id} className="flex items-center gap-1 truncate text-[11px] text-stone-600 dark:text-stone-400">
                     <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${ESTADO_PONTO[reserva.estado]}`} />
                     <span className="truncate">{reserva.horaInicio}</span>
                   </span>
                 ))}
                 {reservasDoDia.length > 2 ? (
-                  <span className="text-[11px] text-stone-400">+{reservasDoDia.length - 2}</span>
+                  <span className="text-[11px] text-stone-400 dark:text-stone-500">+{reservasDoDia.length - 2}</span>
                 ) : null}
               </div>
             </button>

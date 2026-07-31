@@ -14,6 +14,8 @@ export type {
   Reserva,
   ReservaInsert,
   ReservaUpdate,
+  MembroEquipa,
+  MembroEquipaInsert,
   HorarioFuncionamento,
   BloqueioCalendario,
   ConfiguracaoNotificacao,

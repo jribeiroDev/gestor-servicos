@@ -4,6 +4,8 @@ import type {
   BloqueioCalendario,
   ConfiguracaoNotificacao,
   HorarioFuncionamento,
+  MembroEquipa,
+  MembroEquipaInsert,
   PushSubscriptionRow,
   Reserva,
   ReservaEstado,
@@ -27,12 +29,38 @@ function unwrap<T>(result: { data: T | null; error: { message: string } | null }
 
 export async function listServicosAtivos(client: TypedSupabaseClient): Promise<Servico[]> {
   return unwrap(
-    await client.from("servicos").select("*").eq("ativo", true).order("ordem", { ascending: true }),
+    await client.from("servicos").select("*").eq("ativo", true).order("nome", { ascending: true }),
   );
 }
 
 export async function listServicos(client: TypedSupabaseClient): Promise<Servico[]> {
-  return unwrap(await client.from("servicos").select("*").order("ordem", { ascending: true }));
+  return unwrap(await client.from("servicos").select("*").order("nome", { ascending: true }));
+}
+
+/* ------------------------------------------------------------ Equipa */
+
+export async function listEquipa(client: TypedSupabaseClient): Promise<MembroEquipa[]> {
+  return unwrap(
+    await client
+      .from("equipa")
+      .select("*")
+      .order("ordem", { ascending: true })
+      .order("nome", { ascending: true }),
+  );
+}
+
+export async function createMembroEquipa(
+  client: TypedSupabaseClient,
+  input: MembroEquipaInsert,
+): Promise<MembroEquipa> {
+  return unwrap(await client.from("equipa").insert(input).select().single());
+}
+
+export async function deleteMembroEquipa(client: TypedSupabaseClient, id: string): Promise<void> {
+  const { error } = await client.from("equipa").delete().eq("id", id);
+  if (error) {
+    throw new Error(error.message);
+  }
 }
 
 export async function getServico(client: TypedSupabaseClient, id: string): Promise<Servico> {

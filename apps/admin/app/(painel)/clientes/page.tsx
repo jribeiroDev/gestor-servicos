@@ -19,24 +19,24 @@ export default async function ClientesPage() {
 
   return (
     <section className="lg:min-h-screen">
-      <header className="flex items-center justify-between border-b border-stone-200 bg-white px-5 py-5">
+      <header className="flex items-center justify-between border-b border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 px-5 py-5">
         <div>
-          <h2 className="text-2xl font-semibold text-stone-950">Clientes</h2>
-          <p className="mt-1 text-sm text-stone-500">{clientes.length} cliente(s) com reservas</p>
+          <h2 className="text-2xl font-semibold text-stone-950 dark:text-stone-100">Clientes</h2>
+          <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">{clientes.length} cliente(s) com reservas</p>
         </div>
       </header>
 
       <div className="p-5">
         {clientes.length === 0 ? (
-          <p className="rounded-lg border border-stone-200 bg-white p-6 text-stone-600">
+          <p className="rounded-lg border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 p-6 text-stone-600 dark:text-stone-400">
             Ainda não há clientes com reservas.
           </p>
         ) : (
-          <div className="overflow-hidden rounded-lg border border-stone-200 bg-white">
+          <div className="overflow-hidden rounded-lg border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[560px] border-collapse text-sm">
                 <thead>
-                  <tr className="border-b border-stone-200 text-xs font-medium uppercase tracking-wide text-stone-400">
+                  <tr className="border-b border-stone-200 dark:border-stone-800 text-xs font-medium uppercase tracking-wide text-stone-400 dark:text-stone-500">
                     <th className="px-4 py-3 text-left">Cliente</th>
                     <th className="px-4 py-3 text-left">Telefone</th>
                     <th className="px-4 py-3 text-right">Reservas</th>
@@ -46,17 +46,17 @@ export default async function ClientesPage() {
                 </thead>
                 <tbody>
                   {clientes.map((cliente) => (
-                    <tr key={cliente.telefone} className="border-b border-stone-100 last:border-0">
-                      <td className="px-4 py-3 font-medium text-stone-950">{cliente.nome}</td>
-                      <td className="px-4 py-3 text-stone-600">
+                    <tr key={cliente.telefone} className="border-b border-stone-100 dark:border-stone-800 last:border-0">
+                      <td className="px-4 py-3 font-medium text-stone-950 dark:text-stone-100">{cliente.nome}</td>
+                      <td className="px-4 py-3 text-stone-600 dark:text-stone-400">
                         <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
                           <Phone size={13} />
                           {cliente.telefone}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-right text-stone-700">{cliente.totalReservas}</td>
-                      <td className="px-4 py-3 text-right text-stone-600">{formatarData(cliente.ultimaVisita)}</td>
-                      <td className="px-4 py-3 text-right text-stone-600">{formatarData(cliente.proximaMarcacao)}</td>
+                      <td className="px-4 py-3 text-right text-stone-700 dark:text-stone-300">{cliente.totalReservas}</td>
+                      <td className="px-4 py-3 text-right text-stone-600 dark:text-stone-400">{formatarData(cliente.ultimaVisita)}</td>
+                      <td className="px-4 py-3 text-right text-stone-600 dark:text-stone-400">{formatarData(cliente.proximaMarcacao)}</td>
                     </tr>
                   ))}
                 </tbody>
