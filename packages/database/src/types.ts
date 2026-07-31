@@ -66,13 +66,21 @@ export type Database = {
           data_inicio: string;
           data_fim: string;
           motivo: string | null;
+          profissional_id: string | null;
         };
         Insert: Partial<Database["public"]["Tables"]["bloqueios_calendario"]["Row"]> & {
           data_inicio: string;
           data_fim: string;
         };
         Update: Partial<Database["public"]["Tables"]["bloqueios_calendario"]["Row"]>;
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "bloqueios_calendario_profissional_id_fkey";
+            columns: ["profissional_id"];
+            referencedRelation: "equipa";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       reservas: {
         Row: {

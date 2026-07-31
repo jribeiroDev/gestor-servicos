@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import {
   apagarBloqueio,
   apagarHorario,
+  apagarHorariosDia,
   atualizarEstadoReserva,
   createMembroEquipa,
   criarBloqueio,
@@ -262,10 +263,82 @@ export async function apagarHorarioAction(id: string): Promise<ActionResult> {
   }
 }
 
+/**
+ * Guarda (cria ou substitui) as janelas de um dia/profissional. Quando `original`
+ * é indicado, apaga primeiro esse grupo — permite editar dia/profissional/horas.
+ */
+export async function guardarHorariosDiaAction(input: {
+  original: { diaSemana: number; profissionalId: string | null } | null;
+  diaSemana: number;
+  profissionalId: string | null;
+  janelas: { horaInicio: string; horaFim: string }[];
+}): Promise<ActionResult> {
+  await requireUser();
+  if (input.diaSemana < 0 || input.diaSemana > 6) {
+    return { ok: false, erro: "Dia da semana inválido." };
+  }
+  if (input.janelas.length === 0) {
+    return { ok: false, erro: "Adicione pelo menos uma janela de horário." };
+  }
+  for (const janela of input.janelas) {
+    if (!janela.horaInicio || !janela.horaFim || janela.horaInicio >= janela.horaFim) {
+      return { ok: false, erro: "A hora de início tem de ser anterior à de fim." };
+    }
+  }
+  const ordenadas = [...input.janelas].sort((a, b) => a.horaInicio.localeCompare(b.horaInicio));
+  for (let i = 1; i < ordenadas.length; i++) {
+    if (ordenadas[i].horaInicio < ordenadas[i - 1].horaFim) {
+      return { ok: false, erro: "As janelas não se podem sobrepor." };
+    }
+  }
+  const prof = input.profissionalId || null;
+  try {
+    const client = createServiceRoleClient();
+    if (input.original) {
+      await apagarHorariosDia(client, input.original.diaSemana, input.original.profissionalId);
+    }
+    // Se mudou de dia/profissional, evita duplicar janelas já existentes no destino.
+    const mudouAlvo =
+      input.original !== null &&
+      (input.original.diaSemana !== input.diaSemana || input.original.profissionalId !== prof);
+    if (mudouAlvo) {
+      await apagarHorariosDia(client, input.diaSemana, prof);
+    }
+    for (const janela of ordenadas) {
+      await criarHorario(client, {
+        dia_semana: input.diaSemana,
+        hora_inicio: janela.horaInicio,
+        hora_fim: janela.horaFim,
+        profissional_id: prof,
+      });
+    }
+    revalidatePath("/horarios");
+    return { ok: true };
+  } catch {
+    return { ok: false, erro: "Não foi possível guardar o horário." };
+  }
+}
+
+/** Apaga todas as janelas de um dia/profissional (remover um grupo inteiro). */
+export async function apagarHorariosDiaAction(
+  diaSemana: number,
+  profissionalId: string | null,
+): Promise<ActionResult> {
+  await requireUser();
+  try {
+    await apagarHorariosDia(createServiceRoleClient(), diaSemana, profissionalId || null);
+    revalidatePath("/horarios");
+    return { ok: true };
+  } catch {
+    return { ok: false, erro: "Não foi possível remover o horário." };
+  }
+}
+
 export async function criarBloqueioAction(input: {
   dataInicio: string;
   dataFim: string;
   motivo: string;
+  profissionalId?: string | null;
 }): Promise<ActionResult> {
   await requireUser();
   if (!input.dataInicio || !input.dataFim || new Date(input.dataInicio) >= new Date(input.dataFim)) {
@@ -281,6 +354,7 @@ export async function criarBloqueioAction(input: {
       data_inicio: input.dataInicio,
       data_fim: input.dataFim,
       motivo: input.motivo.trim() || null,
+      profissional_id: input.profissionalId ?? null,
     });
     revalidatePath("/horarios");
     return { ok: true };

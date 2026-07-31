@@ -37,6 +37,7 @@ create table if not exists public.bloqueios_calendario (
   data_inicio timestamptz not null,
   data_fim timestamptz not null,
   motivo text,
+  profissional_id uuid references public.equipa(id) on delete cascade,
   check (data_inicio < data_fim)
 );
 

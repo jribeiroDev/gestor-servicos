@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Input } from "@gestor/ui";
+import { Button, Checkbox, Input } from "@gestor/ui";
 import type { Servico } from "@gestor/database";
 import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -153,11 +153,9 @@ export function ServicosClient({ servicos }: { servicos: Servico[] }) {
                 />
               </label>
               <label className="flex items-center gap-2 self-end text-sm font-medium text-stone-700 dark:text-stone-300">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={form.ativo}
                   onChange={(e) => setForm({ ...form, ativo: e.target.checked })}
-                  className="h-4 w-4 rounded border-stone-300 dark:border-stone-600 dark:bg-stone-900"
                 />
                 Ativo
               </label>

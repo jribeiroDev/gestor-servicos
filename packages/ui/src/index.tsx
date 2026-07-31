@@ -46,6 +46,26 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
   },
 );
 
+/**
+ * Checkbox estilizada (accent teal, anel de foco, contraste em claro/escuro).
+ * Usa `accent-color` nativo para o estado marcado — consistente nos dois temas.
+ */
+export const Checkbox = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(
+  function Checkbox({ className, ...props }, ref) {
+    return (
+      <input
+        ref={ref}
+        type="checkbox"
+        className={clsx(
+          "h-[18px] w-[18px] shrink-0 cursor-pointer rounded-[5px] border border-stone-300 bg-white accent-teal-600 outline-none transition focus-visible:ring-2 focus-visible:ring-teal-200 disabled:cursor-not-allowed disabled:opacity-50 dark:border-stone-600 dark:bg-stone-800 dark:accent-teal-500 dark:focus-visible:ring-teal-900/50",
+          className,
+        )}
+        {...props}
+      />
+    );
+  },
+);
+
 export function Panel({ children, title, aside }: PropsWithChildren<{ title: string; aside?: ReactNode }>) {
   return (
     <section className="rounded-lg border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-900">

@@ -136,6 +136,20 @@ export async function apagarHorario(client: TypedSupabaseClient, id: string): Pr
   }
 }
 
+/** Apaga todas as janelas de um dia/profissional (usado ao guardar a edição de um grupo). */
+export async function apagarHorariosDia(
+  client: TypedSupabaseClient,
+  diaSemana: number,
+  profissionalId: string | null,
+): Promise<void> {
+  let query = client.from("horarios_funcionamento").delete().eq("dia_semana", diaSemana);
+  query = profissionalId ? query.eq("profissional_id", profissionalId) : query.is("profissional_id", null);
+  const { error } = await query;
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
 /* ------------------------------------------------------------ Bloqueios */
 
 /** "2026-08-05" → "2026-08-06" (limite superior exclusivo). */
@@ -163,12 +177,17 @@ export async function listBloqueios(
 
 export async function criarBloqueio(
   client: TypedSupabaseClient,
-  input: { data_inicio: string; data_fim: string; motivo?: string | null },
+  input: { data_inicio: string; data_fim: string; motivo?: string | null; profissional_id?: string | null },
 ): Promise<BloqueioCalendario> {
   return unwrap(
     await client
       .from("bloqueios_calendario")
-      .insert({ data_inicio: input.data_inicio, data_fim: input.data_fim, motivo: input.motivo ?? null })
+      .insert({
+        data_inicio: input.data_inicio,
+        data_fim: input.data_fim,
+        motivo: input.motivo ?? null,
+        profissional_id: input.profissional_id ?? null,
+      })
       .select()
       .single(),
   );

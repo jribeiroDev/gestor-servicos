@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Input } from "@gestor/ui";
+import { Button, Checkbox, Input } from "@gestor/ui";
 import { Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -169,11 +169,10 @@ function Canal({
           <span className="block font-medium text-stone-900 dark:text-stone-100">{nome}</span>
           <span className="mt-0.5 block text-sm text-stone-500 dark:text-stone-400">{descricao}</span>
         </span>
-        <input
-          type="checkbox"
+        <Checkbox
           checked={ativo}
           onChange={(e) => onToggle(e.target.checked)}
-          className="h-5 w-5 rounded border-stone-300 dark:border-stone-600 dark:bg-stone-900"
+          className="h-5 w-5"
         />
       </label>
       {ativo && children ? children : null}

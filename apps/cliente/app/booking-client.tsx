@@ -174,18 +174,6 @@ export function BookingClient({
     };
   }, [diaSel, servicoId, profissionalId]);
 
-  const grupos = useMemo(() => {
-    const manha: Slot[] = [];
-    const tarde: Slot[] = [];
-    const noite: Slot[] = [];
-    for (const s of slots) {
-      if (s.startsAt < "12:00") manha.push(s);
-      else if (s.startsAt < "19:00") tarde.push(s);
-      else noite.push(s);
-    }
-    return { manha, tarde, noite };
-  }, [slots]);
-
   const grelha = useMemo(() => generateMonthGrid(mesCursor), [mesCursor]);
   const podeRecuar = inicioMes(new Date()) < mesCursor;
 
@@ -492,25 +480,21 @@ export function BookingClient({
                       Sem horas disponíveis neste dia.
                     </p>
                   ) : (
-                    <div className="grid grid-cols-3 gap-2">
-                      <ColunaHoras
-                        titulo="Manhã"
-                        slots={grupos.manha}
-                        selecionado={slotSel}
-                        onSelecionar={setSlotSel}
-                      />
-                      <ColunaHoras
-                        titulo="Tarde"
-                        slots={grupos.tarde}
-                        selecionado={slotSel}
-                        onSelecionar={setSlotSel}
-                      />
-                      <ColunaHoras
-                        titulo="Noite"
-                        slots={grupos.noite}
-                        selecionado={slotSel}
-                        onSelecionar={setSlotSel}
-                      />
+                    <div className="flex flex-wrap justify-center gap-2">
+                      {slots.map((s) => (
+                        <button
+                          key={s.startsAt}
+                          type="button"
+                          onClick={() => setSlotSel(s.startsAt)}
+                          className={`inline-flex h-10 min-w-[4.5rem] items-center justify-center rounded-full border px-3 text-sm font-medium transition ${
+                            slotSel === s.startsAt
+                              ? "border-teal-700 bg-teal-700 text-white dark:border-teal-500 dark:bg-teal-600"
+                              : "border-stone-200 text-stone-800 hover:border-teal-600 dark:border-stone-700 dark:text-stone-200 dark:hover:border-teal-500"
+                          }`}
+                        >
+                          {s.startsAt}
+                        </button>
+                      ))}
                     </div>
                   )}
                 </div>
@@ -595,40 +579,6 @@ export function BookingClient({
         </div>
       ) : null}
     </main>
-  );
-}
-
-function ColunaHoras({
-  titulo,
-  slots,
-  selecionado,
-  onSelecionar,
-}: {
-  titulo: string;
-  slots: Slot[];
-  selecionado: string | null;
-  onSelecionar: (hora: string) => void;
-}) {
-  return (
-    <div className="grid content-start gap-2">
-      <p className="text-center text-xs font-medium uppercase tracking-wide text-stone-400 dark:text-stone-500">
-        {titulo}
-      </p>
-      {slots.map((s) => (
-        <button
-          key={s.startsAt}
-          type="button"
-          onClick={() => onSelecionar(s.startsAt)}
-          className={`inline-flex h-10 items-center justify-center rounded-full border text-sm font-medium transition ${
-            selecionado === s.startsAt
-              ? "border-teal-700 bg-teal-700 text-white dark:border-teal-500 dark:bg-teal-600"
-              : "border-stone-200 text-stone-800 hover:border-teal-600 dark:border-stone-700 dark:text-stone-200 dark:hover:border-teal-500"
-          }`}
-        >
-          {s.startsAt}
-        </button>
-      ))}
-    </div>
   );
 }
 

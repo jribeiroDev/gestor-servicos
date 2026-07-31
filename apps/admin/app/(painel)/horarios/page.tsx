@@ -25,6 +25,7 @@ export default async function HorariosPage() {
         dataInicio: b.data_inicio,
         dataFim: b.data_fim,
         motivo: b.motivo,
+        profissionalId: b.profissional_id ?? null,
       }))}
       equipa={equipa.map((m) => ({ id: m.id, nome: m.nome }))}
     />

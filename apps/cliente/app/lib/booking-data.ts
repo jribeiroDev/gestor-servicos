@@ -58,6 +58,11 @@ function rangesDoProfissional(reservas: ReservaSlot[], dia: string, profId: stri
     .map((r) => ({ date: dia, startsAt: r.hora_inicio.slice(0, 5), endsAt: r.hora_fim.slice(0, 5) }));
 }
 
+/** Bloqueios que afetam este profissional: os gerais (null) + os dele. */
+function blocksDoProfissional(blocks: CalendarBlock[], profId: string | null): CalendarBlock[] {
+  return blocks.filter((b) => (b.profissionalId ?? null) === null || (b.profissionalId ?? null) === profId);
+}
+
 function slotsDeProfissional(
   data: Date,
   duracao: number,
@@ -71,7 +76,7 @@ function slotsDeProfissional(
     durationMinutes: duracao,
     openingWindows: windowsDoProfissional(horarios, profId),
     reservations: rangesDoProfissional(reservas, dateKey(data), profId),
-    blocks,
+    blocks: blocksDoProfissional(blocks, profId),
   });
 }
 
@@ -140,6 +145,7 @@ export async function getSlotsDisponiveis(
     startsAt: b.data_inicio,
     endsAt: b.data_fim,
     motivo: b.motivo,
+    profissionalId: b.profissional_id ?? null,
   }));
 
   return calcularSlots({
@@ -179,6 +185,7 @@ export async function getDiasDisponiveis(
     startsAt: b.data_inicio,
     endsAt: b.data_fim,
     motivo: b.motivo,
+    profissionalId: b.profissional_id ?? null,
   }));
   const equipaIds = equipa.map((e) => e.id);
   const hoje = dateKey(new Date());
@@ -232,6 +239,7 @@ export async function escolherProfissionalLivre(
     startsAt: b.data_inicio,
     endsAt: b.data_fim,
     motivo: b.motivo,
+    profissionalId: b.profissional_id ?? null,
   }));
 
   const livre = (profId: string | null) => {

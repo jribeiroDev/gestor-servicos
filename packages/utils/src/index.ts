@@ -11,6 +11,8 @@ export type CalendarBlock = {
   startsAt: string;
   endsAt: string;
   motivo?: string | null;
+  /** Profissional afetado; null = bloqueio geral (todos). */
+  profissionalId?: string | null;
 };
 
 export type ReservationRange = {
