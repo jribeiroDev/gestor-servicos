@@ -112,6 +112,7 @@ export type Database = {
           id: string;
           reserva_id: string | null;
           token_acesso: string | null;
+          tipo: string;
           endpoint: string;
           keys: Record<string, unknown>;
           criado_em: string;

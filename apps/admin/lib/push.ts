@@ -24,6 +24,26 @@ function garantirVapid(): boolean {
 
 export type PushPayload = { title: string; body: string; url?: string };
 
+/** Envia um push a uma subscrição concreta. Best-effort — nunca lança. */
+export async function enviarPush(
+  subscription: { endpoint: string; keys: Record<string, unknown> },
+  payload: PushPayload,
+): Promise<boolean> {
+  if (!garantirVapid() || !subscription.endpoint) {
+    return false;
+  }
+  try {
+    await webpush.sendNotification(
+      { endpoint: subscription.endpoint, keys: subscription.keys as { p256dh: string; auth: string } },
+      JSON.stringify(payload),
+    );
+    return true;
+  } catch (erro) {
+    console.error("[push] falha no envio:", (erro as { statusCode?: number }).statusCode, (erro as Error).message);
+    return false;
+  }
+}
+
 /**
  * Envia uma notificação web push a todas as subscrições associadas a um token
  * de reserva. Respeita a flag web_push_ativo e limpa subscrições expiradas.

@@ -19,7 +19,7 @@ import {
 } from "@gestor/database";
 import { requireUser } from "../lib/auth";
 import { fetchReservasIntervalo, mapReservaAgenda, type ReservaAgendaView } from "../lib/admin-data";
-import { notificarReservaPorToken } from "../lib/push";
+import { enviarPush, notificarReservaPorToken } from "../lib/push";
 
 export async function getReservasIntervaloAction(from: string, to: string): Promise<ReservaAgendaView[]> {
   await requireUser();
@@ -125,6 +125,7 @@ const ESTADO_MENSAGEM: Partial<Record<ReservaEstado, { title: string; body: stri
   confirmada: { title: "Reserva confirmada", body: "A sua reserva foi confirmada." },
   cancelada: { title: "Reserva cancelada", body: "A sua reserva foi cancelada." },
   concluida: { title: "Reserva concluída", body: "Obrigado pela sua visita!" },
+  no_show: { title: "Falta registada", body: "A sua reserva foi marcada como não comparência." },
 };
 
 export async function definirEstadoReservaAction(
@@ -227,6 +228,57 @@ export async function apagarBloqueioAction(id: string): Promise<ActionResult> {
 }
 
 /* ---------------------------------------------------------- Notificações */
+
+export type GuardarSubscricaoResult = { ok: boolean; erro?: string };
+
+/** Regista este browser do NEGÓCIO para receber avisos (tipo='admin'). */
+export async function guardarSubscricaoAdminAction(subscription: {
+  endpoint: string;
+  keys: Record<string, unknown>;
+}): Promise<GuardarSubscricaoResult> {
+  await requireUser();
+  try {
+    if (!subscription.endpoint) {
+      return { ok: false, erro: "Subscrição sem endpoint." };
+    }
+    const client = createServiceRoleClient();
+    // Dedupe por endpoint.
+    await client.from("push_subscriptions").delete().eq("endpoint", subscription.endpoint);
+    const { error } = await client.from("push_subscriptions").insert({
+      endpoint: subscription.endpoint,
+      keys: subscription.keys,
+      token_acesso: null,
+      tipo: "admin",
+    });
+    if (error) {
+      console.error("[push] guardar subscrição admin falhou:", error.message);
+      return { ok: false, erro: error.message };
+    }
+    // Confirmação imediata — prova que a entrega funciona neste dispositivo.
+    await enviarPush(subscription, {
+      title: "Avisos do negócio ativados",
+      body: "Vai receber aqui as reservas novas e as alterações dos clientes.",
+      url: "/",
+    });
+    return { ok: true };
+  } catch (erro) {
+    console.error("[push] guardarSubscricaoAdminAction exceção:", (erro as Error).message);
+    return { ok: false, erro: (erro as Error).message };
+  }
+}
+
+export async function removerSubscricaoAdminAction(endpoint: string): Promise<GuardarSubscricaoResult> {
+  await requireUser();
+  try {
+    if (!endpoint) {
+      return { ok: false, erro: "Endpoint em falta." };
+    }
+    await createServiceRoleClient().from("push_subscriptions").delete().eq("endpoint", endpoint);
+    return { ok: true };
+  } catch (erro) {
+    return { ok: false, erro: (erro as Error).message };
+  }
+}
 
 export async function guardarConfigNotificacaoAction(
   patch: Partial<Omit<ConfiguracaoNotificacao, "id">>,

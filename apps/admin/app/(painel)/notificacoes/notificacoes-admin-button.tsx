@@ -2,7 +2,7 @@
 
 import { Bell, BellOff, BellRing } from "lucide-react";
 import { useEffect, useState } from "react";
-import { guardarSubscricaoAction, removerSubscricaoAction } from "./actions";
+import { guardarSubscricaoAdminAction, removerSubscricaoAdminAction } from "../../actions";
 
 type Estado = "indisponivel" | "sem-config" | "inativo" | "a-processar" | "ativo" | "erro";
 
@@ -19,11 +19,11 @@ const suportado = () =>
   "PushManager" in window &&
   "Notification" in window;
 
-export function NotificacoesButton({ token }: { token?: string }) {
+/** Regista ESTE dispositivo do negócio para receber avisos de reservas. */
+export function NotificacoesAdminButton() {
   const [estado, setEstado] = useState<Estado>("inativo");
   const [detalheErro, setDetalheErro] = useState<string | null>(null);
 
-  // Reflete o estado real: existe subscrição ativa neste browser?
   useEffect(() => {
     if (!suportado()) {
       setEstado("indisponivel");
@@ -39,9 +39,7 @@ export function NotificacoesButton({ token }: { token?: string }) {
       try {
         const registration = await navigator.serviceWorker.ready;
         const subscricao = await registration.pushManager.getSubscription();
-        if (!cancelado) {
-          setEstado(subscricao ? "ativo" : "inativo");
-        }
+        if (!cancelado) setEstado(subscricao ? "ativo" : "inativo");
       } catch {
         if (!cancelado) setEstado("inativo");
       }
@@ -59,9 +57,7 @@ export function NotificacoesButton({ token }: { token?: string }) {
       if (permissao !== "granted") {
         setEstado("inativo");
         setDetalheErro(
-          permissao === "denied"
-            ? "Permissão de notificações bloqueada nas definições do browser."
-            : null,
+          permissao === "denied" ? "Permissão de notificações bloqueada nas definições do browser." : null,
         );
         return;
       }
@@ -74,10 +70,10 @@ export function NotificacoesButton({ token }: { token?: string }) {
           applicationServerKey: urlBase64ToUint8Array(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY as string),
         }));
       const json = subscricao.toJSON();
-      const resultado = await guardarSubscricaoAction(
-        { endpoint: json.endpoint ?? "", keys: json.keys ?? {} },
-        token,
-      );
+      const resultado = await guardarSubscricaoAdminAction({
+        endpoint: json.endpoint ?? "",
+        keys: json.keys ?? {},
+      });
       if (resultado.ok) {
         setEstado("ativo");
       } else {
@@ -85,7 +81,7 @@ export function NotificacoesButton({ token }: { token?: string }) {
         setDetalheErro(resultado.erro ?? null);
       }
     } catch (erro) {
-      console.error("[push] ativar falhou:", erro);
+      console.error("[push admin] ativar falhou:", erro);
       setEstado("erro");
       setDetalheErro(erro instanceof Error ? erro.message : String(erro));
     }
@@ -97,12 +93,8 @@ export function NotificacoesButton({ token }: { token?: string }) {
       const registration = await navigator.serviceWorker.ready;
       const subscricao = await registration.pushManager.getSubscription();
       const endpoint = subscricao?.endpoint;
-      if (subscricao) {
-        await subscricao.unsubscribe();
-      }
-      if (endpoint) {
-        await removerSubscricaoAction(endpoint);
-      }
+      if (subscricao) await subscricao.unsubscribe();
+      if (endpoint) await removerSubscricaoAdminAction(endpoint);
       setEstado("inativo");
     } catch {
       setEstado("erro");
@@ -110,33 +102,35 @@ export function NotificacoesButton({ token }: { token?: string }) {
   };
 
   const clicar = () => {
-    if (estado === "ativo") {
-      void desativar();
-    } else if (estado === "inativo" || estado === "erro") {
-      void ativar();
-    }
+    if (estado === "ativo") void desativar();
+    else if (estado === "inativo" || estado === "erro") void ativar();
   };
 
   const rotulo: Record<Estado, string> = {
-    indisponivel: "Notificações indisponíveis",
-    "sem-config": "Notificações não configuradas",
-    inativo: "Ativar notificações",
+    indisponivel: "Não suportado neste dispositivo",
+    "sem-config": "Push não configurado no servidor",
+    inativo: "Ativar avisos neste dispositivo",
     "a-processar": "Um momento…",
-    ativo: "Desativar notificações",
+    ativo: "Avisos ativos — desativar",
     erro: "Tentar novamente",
   };
 
   const desativado = estado === "indisponivel" || estado === "sem-config" || estado === "a-processar";
-
   const Icone = estado === "ativo" ? BellRing : estado === "inativo" ? Bell : BellOff;
 
   return (
-    <div className="grid gap-1">
+    <div className="rounded-lg border border-stone-200 bg-white p-4">
+      <div className="flex flex-col gap-1">
+        <span className="font-medium text-stone-900">Receber avisos neste dispositivo</span>
+        <span className="text-sm text-stone-500">
+          Ative em cada telemóvel/computador onde quer ser avisado de reservas novas e alterações dos clientes.
+        </span>
+      </div>
       <button
         type="button"
         onClick={clicar}
         disabled={desativado}
-        className={`inline-flex h-10 items-center gap-2 self-start rounded-md border px-3 text-sm transition disabled:cursor-not-allowed disabled:opacity-70 ${
+        className={`mt-3 inline-flex h-10 items-center gap-2 self-start rounded-md border px-3 text-sm transition disabled:cursor-not-allowed disabled:opacity-70 ${
           estado === "ativo"
             ? "border-teal-700 bg-teal-50 text-teal-800 hover:bg-teal-100"
             : "border-stone-300 text-stone-700 hover:bg-stone-100"
@@ -146,12 +140,12 @@ export function NotificacoesButton({ token }: { token?: string }) {
         {rotulo[estado]}
       </button>
       {estado === "erro" ? (
-        <span className="text-xs text-red-600">
+        <p className="mt-2 text-xs text-red-600">
           {detalheErro ?? "Não foi possível concluir. Verifique as permissões do browser."}
-        </span>
+        </p>
       ) : null}
       {estado === "sem-config" ? (
-        <span className="text-xs text-stone-500">O envio de push ainda não está configurado no servidor.</span>
+        <p className="mt-2 text-xs text-stone-500">Falta a chave VAPID pública no ambiente do painel.</p>
       ) : null}
     </div>
   );

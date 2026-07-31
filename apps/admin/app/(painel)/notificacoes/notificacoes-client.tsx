@@ -5,6 +5,7 @@ import { Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { guardarConfigNotificacaoAction } from "../../actions";
+import { NotificacoesAdminButton } from "./notificacoes-admin-button";
 
 type ConfigView = {
   webPush: boolean;
@@ -67,6 +68,9 @@ export function NotificacoesClient({ config }: { config: ConfigView }) {
       </header>
 
       <div className="grid max-w-2xl gap-4 p-5">
+        {/* Avisos para o próprio negócio (este dispositivo) */}
+        <NotificacoesAdminButton />
+
         {/* Web Push */}
         <Canal
           nome="Web Push"

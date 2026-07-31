@@ -343,6 +343,15 @@ export async function getPushSubscriptionsByToken(
   );
 }
 
+/** Subscrições do NEGÓCIO (browsers admin que ativaram avisos). */
+export async function getPushSubscriptionsAdmin(
+  client: TypedSupabaseClient,
+): Promise<PushSubscriptionRow[]> {
+  return unwrap(
+    await client.from("push_subscriptions").select("*").eq("tipo", "admin"),
+  );
+}
+
 export async function apagarPushSubscription(
   client: TypedSupabaseClient,
   endpoint: string,

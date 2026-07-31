@@ -1,6 +1,6 @@
 {
-  "name": "Reservas",
-  "short_name": "Reservas",
+  "name": "Admin · Reservas",
+  "short_name": "Admin",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#fafaf9",
