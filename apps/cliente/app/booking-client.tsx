@@ -18,7 +18,11 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { criarReservaAction, getDiasDisponiveisAction, getSlotsAction } from "./actions";
+import {
+  criarReservaAction,
+  getDiasDisponiveisAction,
+  getSlotsAction,
+} from "./actions";
 import type { MembroEquipaView } from "./lib/booking-data";
 import { NotificacoesButton } from "./notificacoes-button";
 import { PhoneInput } from "./phone-input";
@@ -29,7 +33,10 @@ const DIAS_CURTO_SEG = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 
 function formatarPreco(preco: number | null): string {
   if (preco === null) return "—";
-  return new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR" }).format(preco);
+  return new Intl.NumberFormat("pt-PT", {
+    style: "currency",
+    currency: "EUR",
+  }).format(preco);
 }
 
 function parseDia(dia: string): Date {
@@ -123,7 +130,12 @@ export function BookingClient({
     if (!aberto || !servicoId) return;
     let cancel = false;
     setLoadingDias(true);
-    getDiasDisponiveisAction(servicoId, mesCursor.getFullYear(), mesCursor.getMonth(), profissionalId)
+    getDiasDisponiveisAction(
+      servicoId,
+      mesCursor.getFullYear(),
+      mesCursor.getMonth(),
+      profissionalId,
+    )
       .then((d) => {
         if (!cancel) setDiasDisponiveis(d);
       })
@@ -216,7 +228,9 @@ export function BookingClient({
   if (servicos.length === 0) {
     return (
       <main className="mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-6 px-5 py-10 md:px-8">
-        <h1 className="text-2xl font-semibold text-stone-950 dark:text-stone-100">Agendamento online</h1>
+        <h1 className="text-2xl font-semibold text-stone-950 dark:text-stone-100">
+          Agendamento online
+        </h1>
         <p className="rounded-lg border border-stone-200 bg-white p-6 text-stone-600 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-400">
           De momento não há serviços disponíveis para marcação.
         </p>
@@ -228,7 +242,9 @@ export function BookingClient({
     <main className="mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-8 px-5 py-6 md:px-8">
       <header className="flex flex-col gap-4 border-b border-stone-200 pb-6 dark:border-stone-800 md:flex-row md:items-center md:justify-between">
         <div>
-          <p className="text-sm font-medium text-teal-700 dark:text-teal-400">Agendamento online</p>
+          <p className="text-sm font-medium text-teal-700 dark:text-teal-400">
+            Agendamento online
+          </p>
           <h1 className="mt-1 text-3xl font-semibold tracking-normal text-stone-950 dark:text-stone-100">
             Escolha o serviço
           </h1>
@@ -261,7 +277,9 @@ export function BookingClient({
                   <Clock size={14} />
                   {service.duracao_minutos} min
                 </span>
-                <strong className="text-stone-950 dark:text-stone-100">{formatarPreco(service.preco)}</strong>
+                <strong className="text-stone-950 dark:text-stone-100">
+                  {formatarPreco(service.preco)}
+                </strong>
               </div>
             </div>
           </button>
@@ -282,8 +300,12 @@ export function BookingClient({
                 <ArrowLeft size={20} />
               </button>
               <div className="flex-1 text-center">
-                <h2 className="text-lg font-semibold text-stone-950 dark:text-stone-100">Nova Marcação</h2>
-                <p className="text-sm text-stone-500 dark:text-stone-400">{subtitulo}</p>
+                <h2 className="text-lg font-semibold text-stone-950 dark:text-stone-100">
+                  Nova Marcação
+                </h2>
+                <p className="text-sm text-stone-500 dark:text-stone-400">
+                  {subtitulo}
+                </p>
               </div>
               <button
                 type="button"
@@ -298,30 +320,39 @@ export function BookingClient({
             {/* Serviço escolhido (contexto) */}
             <div className="flex items-center gap-2 border-b border-stone-100 px-4 py-2.5 text-sm dark:border-stone-800">
               <Tag size={14} className="text-teal-700 dark:text-teal-400" />
-              <span className="font-medium text-stone-800 dark:text-stone-200">{servico.nome}</span>
+              <span className="font-medium text-stone-800 dark:text-stone-200">
+                {servico.nome}
+              </span>
               <span className="text-stone-400 dark:text-stone-500">·</span>
-              <span className="text-stone-500 dark:text-stone-400">{servico.duracao_minutos} min</span>
+              <span className="text-stone-500 dark:text-stone-400">
+                {servico.duracao_minutos} min
+              </span>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4">
+            <div className="flex-1 overflow-y-auto p-4 ">
               {/* PASSO: PROFISSIONAL */}
               {passo === "profissional" ? (
-                <div className="grid gap-2">
+                <div className="grid gap-2 ">
                   <button
                     type="button"
                     onClick={() => escolherProfissional(null)}
-                    className="flex items-center gap-3 rounded-xl border border-stone-200 bg-white p-3 text-left transition hover:border-teal-600 dark:border-stone-800 dark:bg-stone-900 dark:hover:border-teal-500"
+                    className="flex items-center gap-3 rounded-xl border border-stone-200 bg-white p-3 text-left transition hover:border-teal-600 dark:border-stone-800 dark:bg-stone-800/40 dark:hover:border-teal-500"
                   >
-                    <span className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-stone-100 text-stone-500 dark:bg-stone-800 dark:text-stone-300">
+                    <span className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-stone-100 text-stone-500 dark:bg-teal-900 dark:text-stone-300">
                       <Users size={20} />
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block font-medium text-stone-900 dark:text-stone-100">Sem preferência</span>
+                      <span className="block font-medium text-stone-900 dark:text-stone-100">
+                        Sem preferência
+                      </span>
                       <span className="block text-xs text-stone-500 dark:text-stone-400">
                         Qualquer profissional disponível
                       </span>
                     </span>
-                    <ChevronRight size={18} className="text-stone-400 dark:text-stone-500" />
+                    <ChevronRight
+                      size={18}
+                      className="text-stone-400 dark:text-stone-500 "
+                    />
                   </button>
 
                   {equipa.map((m) => (
@@ -329,20 +360,27 @@ export function BookingClient({
                       key={m.id}
                       type="button"
                       onClick={() => escolherProfissional(m.id)}
-                      className="flex items-center gap-3 rounded-xl border border-stone-200 bg-white p-3 text-left transition hover:border-teal-600 dark:border-stone-800 dark:bg-stone-900 dark:hover:border-teal-500"
+                      className="flex items-center gap-3 rounded-xl border border-stone-200 bg-white p-3 text-left transition hover:border-teal-600 dark:border-stone-800 dark:bg-stone-800/40 dark:hover:border-teal-500"
                     >
-                      <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-stone-100 text-sm font-semibold text-stone-500 dark:bg-stone-800 dark:text-stone-300">
+                      <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-stone-100 text-sm font-semibold text-stone-500 dark:bg-teal-900 dark:text-stone-300 ">
                         {m.fotoUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={m.fotoUrl} alt={m.nome} className="h-full w-full object-cover" />
+                          <img
+                            src={m.fotoUrl}
+                            alt={m.nome}
+                            className="h-full w-full object-cover "
+                          />
                         ) : (
                           iniciais(m.nome) || <UserRound size={20} />
                         )}
                       </span>
-                      <span className="min-w-0 flex-1 truncate font-medium text-stone-900 dark:text-stone-100">
+                      <span className="min-w-0 flex-1 truncate font-medium text-stone-900 dark:text-stone-100 ">
                         {m.nome}
                       </span>
-                      <ChevronRight size={18} className="text-stone-400 dark:text-stone-500" />
+                      <ChevronRight
+                        size={18}
+                        className="text-stone-400 dark:text-stone-500"
+                      />
                     </button>
                   ))}
                 </div>
@@ -370,7 +408,10 @@ export function BookingClient({
                       <ChevronLeft size={18} />
                     </button>
                     <span className="text-base font-semibold capitalize text-stone-900 dark:text-stone-100">
-                      {mesCursor.toLocaleDateString("pt-PT", { month: "long", year: "numeric" })}
+                      {mesCursor.toLocaleDateString("pt-PT", {
+                        month: "long",
+                        year: "numeric",
+                      })}
                     </span>
                     <button
                       type="button"
@@ -394,17 +435,21 @@ export function BookingClient({
                     <div className="grid grid-cols-7 gap-y-1">
                       {grelha.map(({ date, inMonth }) => {
                         const key = dateKey(date);
-                        const disponivel = inMonth && diasDisponiveis.includes(key);
+                        const disponivel =
+                          inMonth && diasDisponiveis.includes(key);
                         const selecionado = key === diaSel;
                         return (
-                          <div key={key} className="flex items-center justify-center py-0.5">
+                          <div
+                            key={key}
+                            className="flex items-center justify-center py-0.5"
+                          >
                             <button
                               type="button"
                               disabled={!disponivel}
                               onClick={() => setDiaSel(key)}
                               className={`inline-flex h-10 w-10 items-center justify-center rounded-full text-sm transition ${
                                 selecionado
-                                  ? "bg-stone-900 font-semibold text-white dark:bg-white dark:text-stone-950"
+                                  ? "bg-stone-900 font-semibold text-white dark:bg-teal-600 dark:text-white"
                                   : disponivel
                                     ? "border border-stone-200 text-stone-800 hover:border-teal-600 dark:border-stone-700 dark:text-stone-200 dark:hover:border-teal-500"
                                     : "text-stone-300 dark:text-stone-600"
@@ -439,16 +484,33 @@ export function BookingClient({
                       Escolha um dia para ver as horas.
                     </p>
                   ) : loadingSlots ? (
-                    <p className="py-4 text-center text-sm text-stone-400 dark:text-stone-500">A carregar horas…</p>
+                    <p className="py-4 text-center text-sm text-stone-400 dark:text-stone-500">
+                      A carregar horas…
+                    </p>
                   ) : slots.length === 0 ? (
                     <p className="py-4 text-center text-sm text-stone-500 dark:text-stone-400">
                       Sem horas disponíveis neste dia.
                     </p>
                   ) : (
                     <div className="grid grid-cols-3 gap-2">
-                      <ColunaHoras titulo="Manhã" slots={grupos.manha} selecionado={slotSel} onSelecionar={setSlotSel} />
-                      <ColunaHoras titulo="Tarde" slots={grupos.tarde} selecionado={slotSel} onSelecionar={setSlotSel} />
-                      <ColunaHoras titulo="Noite" slots={grupos.noite} selecionado={slotSel} onSelecionar={setSlotSel} />
+                      <ColunaHoras
+                        titulo="Manhã"
+                        slots={grupos.manha}
+                        selecionado={slotSel}
+                        onSelecionar={setSlotSel}
+                      />
+                      <ColunaHoras
+                        titulo="Tarde"
+                        slots={grupos.tarde}
+                        selecionado={slotSel}
+                        onSelecionar={setSlotSel}
+                      />
+                      <ColunaHoras
+                        titulo="Noite"
+                        slots={grupos.noite}
+                        selecionado={slotSel}
+                        onSelecionar={setSlotSel}
+                      />
                     </div>
                   )}
                 </div>
@@ -459,24 +521,44 @@ export function BookingClient({
                 <div className="grid gap-4">
                   <div className="grid gap-1.5 rounded-xl border border-stone-200 bg-stone-50 p-4 text-sm dark:border-stone-800 dark:bg-stone-800/40">
                     <Resumo rotulo="Serviço" valor={servico.nome} />
-                    <Resumo rotulo="Profissional" valor={membro ? membro.nome : "Sem preferência"} />
+                    <Resumo
+                      rotulo="Profissional"
+                      valor={membro ? membro.nome : "Sem preferência"}
+                    />
                     <Resumo
                       rotulo="Dia"
-                      valor={diaSel ? parseDia(diaSel).toLocaleDateString("pt-PT", { weekday: "long", day: "2-digit", month: "long" }) : ""}
+                      valor={
+                        diaSel
+                          ? parseDia(diaSel).toLocaleDateString("pt-PT", {
+                              weekday: "long",
+                              day: "2-digit",
+                              month: "long",
+                            })
+                          : ""
+                      }
                     />
                     <Resumo rotulo="Hora" valor={slotSel ?? ""} />
                   </div>
 
                   <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
                     Nome
-                    <Input className="mt-2" placeholder="O seu nome" value={nome} onChange={(e) => setNome(e.target.value)} />
+                    <Input
+                      className="mt-2"
+                      placeholder="O seu nome"
+                      value={nome}
+                      onChange={(e) => setNome(e.target.value)}
+                    />
                   </label>
                   <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
                     Telemóvel
                     <PhoneInput className="mt-2" onChange={setTelefone} />
                   </label>
 
-                  {erro ? <p className="text-sm font-medium text-red-700 dark:text-red-400">{erro}</p> : null}
+                  {erro ? (
+                    <p className="text-sm font-medium text-red-700 dark:text-red-400">
+                      {erro}
+                    </p>
+                  ) : null}
                 </div>
               ) : null}
             </div>
@@ -484,7 +566,12 @@ export function BookingClient({
             {/* Rodapé */}
             {passo === "dia" ? (
               <footer className="border-t border-stone-200 p-3 dark:border-stone-800">
-                <Button type="button" className="w-full" disabled={!slotSel} onClick={() => setPasso("dados")}>
+                <Button
+                  type="button"
+                  className="w-full"
+                  disabled={!slotSel}
+                  onClick={() => setPasso("dados")}
+                >
                   Continuar
                 </Button>
               </footer>
@@ -494,7 +581,9 @@ export function BookingClient({
                 <Button
                   type="button"
                   className="w-full"
-                  disabled={pending || !nome.trim() || telefone.trim().length < 6}
+                  disabled={
+                    pending || !nome.trim() || telefone.trim().length < 6
+                  }
                   onClick={confirmar}
                 >
                   <Check size={16} />
@@ -547,7 +636,9 @@ function Resumo({ rotulo, valor }: { rotulo: string; valor: string }) {
   return (
     <div className="flex items-center justify-between gap-3">
       <span className="text-stone-500 dark:text-stone-400">{rotulo}</span>
-      <span className="text-right font-medium capitalize text-stone-900 dark:text-stone-100">{valor}</span>
+      <span className="text-right font-medium capitalize text-stone-900 dark:text-stone-100">
+        {valor}
+      </span>
     </div>
   );
 }
