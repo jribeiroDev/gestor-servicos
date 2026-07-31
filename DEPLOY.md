@@ -108,15 +108,87 @@ _"Allow new users to sign up"_. Crie os utilizadores admin manualmente.
 Alternativa (defesa em profundidade): restringir por email em
 `apps/admin/lib/auth.ts`, dentro de `requireUser()`.
 
-### Chaves
+### Proteção das variáveis de ambiente
 
-- `SUPABASE_SECRET_KEY` e `VAPID_PRIVATE_KEY` **nunca** devem ter o prefixo
-  `NEXT_PUBLIC_` — só assim ficam no servidor.
-- As apps acedem aos dados com a chave secreta (que ignora o RLS), pelo que a
-  segurança depende da validação feita nas _server actions_. Não expor essas
-  ações a parâmetros não validados.
-- Se alguma chave tiver sido partilhada por engano, rode-a em
-  Supabase → _Settings → API_.
+**A única fronteira que importa é o prefixo `NEXT_PUBLIC_`:**
+
+- **Com** prefixo → o valor é _inlined_ no JavaScript enviado ao browser
+  durante o build. Fica visível a qualquer pessoa (ver código-fonte da página).
+  **Nenhuma opção da Vercel o pode esconder.**
+- **Sem** prefixo → existe apenas no runtime do servidor; nunca chega ao browser.
+
+Por isso: um segredo com prefixo `NEXT_PUBLIC_` é um segredo exposto. Não há
+meio-termo.
+
+#### Marcar como _Sensitive_ na Vercel
+
+Ao criar a variável, a Vercel oferece a opção **Sensitive**: o valor passa a ser
+apenas de escrita — não volta a poder ser lido no painel, na API nem no CLI.
+Protege contra alguém com acesso ao painel (ou uma sessão roubada) conseguir
+copiar a chave.
+
+> Guarde uma cópia num gestor de palavras-passe: uma variável _Sensitive_ não
+> pode ser consultada depois de gravada, só substituída.
+
+#### Matriz — app `cliente` (`apps/cliente`)
+
+| Variável                       | Vai ao browser?  | _Sensitive_ | Ambientes         |
+| ------------------------------ | ---------------- | ----------- | ----------------- |
+| `NEXT_PUBLIC_SUPABASE_URL`     | Sim (por design) | Não         | Production        |
+| `SUPABASE_SECRET_KEY`          | **Não**          | **Sim** ✅  | Production        |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | Sim (por design) | Não         | Production        |
+| `VAPID_PRIVATE_KEY`            | **Não**          | **Sim** ✅  | Production        |
+| `VAPID_SUBJECT`                | Não              | Não         | Production        |
+| `TZ=Europe/Lisbon`             | Não              | Não         | Production        |
+
+`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` **não é necessária nesta app**: o cliente
+não usa nenhum cliente Supabase no browser — tudo passa por _server actions_.
+(Só será preciso se algum dia usar `createBrowserSupabaseClient` aqui.)
+
+#### Matriz — app `admin` (`apps/admin`)
+
+As mesmas seis linhas acima, **mais**:
+
+| Variável                               | Vai ao browser?               | _Sensitive_ | Porque é necessária          |
+| -------------------------------------- | ----------------------------- | ----------- | ---------------------------- |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Sim (por design, RLS protege) | Não         | login e realtime no browser  |
+| `NEXT_PUBLIC_CLIENTE_URL`              | Sim                           | Não         | links das notificações push  |
+
+**Resumo: só duas variáveis por app precisam de _Sensitive_** —
+`SUPABASE_SECRET_KEY` e `VAPID_PRIVATE_KEY`. As `NEXT_PUBLIC_*` são públicas por
+natureza e marcá-las como _Sensitive_ não produz efeito nenhum.
+
+#### Ambientes (Production / Preview / Development)
+
+- **Development**: não é preciso ativar — o desenvolvimento local usa os
+  ficheiros `.env.local`. Só faz sentido se usar `vercel env pull`.
+- **Preview** ⚠️ : cada branch/PR gera um URL público. Se der a chave secreta ao
+  ambiente _Preview_, esse URL é uma aplicação totalmente funcional a escrever
+  na base de dados **real**. Escolha uma das opções:
+  1. **Deployment Protection** (Settings → Deployment Protection →
+     _Vercel Authentication_) para que os previews exijam login na Vercel; ou
+  2. um **projeto Supabase separado** para _Preview_, com as suas próprias chaves.
+
+  Se não usar previews, deixe as variáveis apenas em _Production_.
+
+### Chave secreta e âmbito de risco
+
+As duas apps acedem aos dados com a chave secreta, que **ignora o RLS**. É usada
+apenas no servidor, mas implica que a segurança depende da validação feita nas
+_server actions_ — e na app do cliente, que é pública, o âmbito de risco é maior.
+
+Endurecimento futuro (refactor, não urgente): escrever políticas RLS adequadas e
+passar a app do cliente a usar a chave _publishable_, deixando a chave secreta
+exclusivamente no admin.
+
+### Rotação de chaves
+
+Antes de ir para produção a sério, rode as chaves que já circularam em texto
+simples (ficheiros locais, conversas, capturas de ecrã):
+
+- Supabase → _Settings → API_ (chaves do projeto).
+- VAPID: gerar novo par e atualizar **as duas** apps em simultâneo — trocar as
+  chaves invalida as subscrições push existentes.
 
 ---
 
