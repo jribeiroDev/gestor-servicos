@@ -26,10 +26,14 @@ export type ReservaAgendaView = {
   nomeCliente: string;
   telefoneCliente: string;
   servicoNome: string;
+  profissionalNome: string | null;
   estado: ReservaEstado;
 };
 
-export function mapReservaAgenda(reserva: ReservaComServico): ReservaAgendaView {
+export function mapReservaAgenda(
+  reserva: ReservaComServico,
+  nomesEquipa?: Map<string, string>,
+): ReservaAgendaView {
   return {
     id: reserva.id,
     data: reserva.data,
@@ -38,8 +42,20 @@ export function mapReservaAgenda(reserva: ReservaComServico): ReservaAgendaView 
     nomeCliente: reserva.nome_cliente,
     telefoneCliente: reserva.telefone_cliente,
     servicoNome: reserva.servico?.nome ?? "Serviço",
+    profissionalNome: reserva.profissional_id ? (nomesEquipa?.get(reserva.profissional_id) ?? null) : null,
     estado: reserva.estado,
   };
+}
+
+/** Mapa id→nome dos membros da equipa (para anexar o profissional às reservas). */
+export async function getNomesEquipa(): Promise<Map<string, string>> {
+  try {
+    const membros = await listEquipa(createServiceRoleClient());
+    return new Map(membros.map((m) => [m.id, m.nome]));
+  } catch {
+    // Equipa pode ainda não existir (migração não aplicada) — degrada sem nomes.
+    return new Map();
+  }
 }
 
 export async function fetchServicos(): Promise<Servico[]> {
@@ -90,9 +106,10 @@ export async function fetchDashboard(dia: string): Promise<DashboardData> {
   const hojeReal = dateKey(new Date());
   const to = dateKey(addDays(new Date(), 30));
 
-  const [doDia, futuras] = await Promise.all([
+  const [doDia, futuras, nomes] = await Promise.all([
     listReservasPorData(client, dia),
     listReservasIntervalo(client, hojeReal, to),
+    getNomesEquipa(),
   ]);
 
   const proximas = futuras
@@ -104,8 +121,8 @@ export async function fetchDashboard(dia: string): Promise<DashboardData> {
 
   return {
     dia,
-    reservasDia: doDia.filter((r) => r.estado !== "cancelada").map(mapReservaAgenda),
-    proximas: proximas.map(mapReservaAgenda),
+    reservasDia: doDia.filter((r) => r.estado !== "cancelada").map((r) => mapReservaAgenda(r, nomes)),
+    proximas: proximas.map((r) => mapReservaAgenda(r, nomes)),
     kpis: {
       total: doDia.filter((r) => r.estado !== "cancelada").length,
       pendentes: doDia.filter((r) => r.estado === "pendente").length,

@@ -3,8 +3,8 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title || "Reservas", {
       body: data.body || "Tem novidades no painel.",
-      icon: "/icon.png",
-      badge: "/icon.png",
+      icon: "/icon.jpg",
+      badge: "/icon.jpg",
       data: data.url || "/",
     }),
   );

@@ -11,8 +11,15 @@ import {
   criarHorariosAction,
 } from "../../actions";
 
-type HorarioView = { id: string; diaSemana: number; horaInicio: string; horaFim: string };
+type HorarioView = {
+  id: string;
+  diaSemana: number;
+  horaInicio: string;
+  horaFim: string;
+  profissionalId: string | null;
+};
 type BloqueioView = { id: string; dataInicio: string; dataFim: string; motivo: string | null };
+type MembroView = { id: string; nome: string };
 
 const DIAS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 
@@ -55,9 +62,11 @@ function formatarBloqueio(inicioIso: string, fimIso: string): string {
 export function HorariosClient({
   horarios,
   bloqueios,
+  equipa,
 }: {
   horarios: HorarioView[];
   bloqueios: BloqueioView[];
+  equipa: MembroView[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -69,6 +78,10 @@ export function HorariosClient({
   const [comPausa, setComPausa] = useState(false);
   const [pausaInicio, setPausaInicio] = useState("13:00");
   const [pausaFim, setPausaFim] = useState("14:00");
+  const [profissionalId, setProfissionalId] = useState<string>("");
+
+  const nomeProfissional = (id: string | null) =>
+    id ? (equipa.find((m) => m.id === id)?.nome ?? "Profissional") : "Geral (todos)";
 
   const hojeKey = chaveData(new Date());
   const [bDataInicio, setBDataInicio] = useState(hojeKey);
@@ -92,6 +105,7 @@ export function HorariosClient({
 
   const adicionarHorario = () => {
     setErro(null);
+    const prof = profissionalId || null;
     if (comPausa) {
       // Pausa (almoço): cria duas janelas — manhã e tarde — com o intervalo livre.
       if (!(horaInicio < pausaInicio && pausaInicio < pausaFim && pausaFim < horaFim)) {
@@ -100,13 +114,13 @@ export function HorariosClient({
       }
       executar(() =>
         criarHorariosAction([
-          { diaSemana, horaInicio, horaFim: pausaInicio },
-          { diaSemana, horaInicio: pausaFim, horaFim },
+          { diaSemana, horaInicio, horaFim: pausaInicio, profissionalId: prof },
+          { diaSemana, horaInicio: pausaFim, horaFim, profissionalId: prof },
         ]),
       );
       return;
     }
-    executar(() => criarHorariosAction([{ diaSemana, horaInicio, horaFim }]));
+    executar(() => criarHorariosAction([{ diaSemana, horaInicio, horaFim, profissionalId: prof }]));
   };
 
   const adicionarBloqueio = () => {
@@ -170,6 +184,11 @@ export function HorariosClient({
                       {" "}
                       · {h.horaInicio}–{h.horaFim}
                     </span>
+                    {equipa.length > 0 ? (
+                      <span className="ml-2 rounded bg-stone-100 px-1.5 py-0.5 text-xs text-stone-600 dark:bg-stone-800 dark:text-stone-300">
+                        {nomeProfissional(h.profissionalId)}
+                      </span>
+                    ) : null}
                   </span>
                   <button
                     onClick={() => executar(() => apagarHorarioAction(h.id))}
@@ -199,6 +218,23 @@ export function HorariosClient({
                 ))}
               </select>
             </label>
+            {equipa.length > 0 ? (
+              <label className="text-sm font-medium text-stone-700 dark:text-stone-300 sm:col-span-3">
+                Profissional
+                <select
+                  value={profissionalId}
+                  onChange={(e) => setProfissionalId(e.target.value)}
+                  className="mt-2 h-10 w-full rounded-md border border-stone-300 bg-white px-3 text-sm dark:border-stone-700 dark:bg-stone-950 dark:text-stone-100"
+                >
+                  <option value="">Geral (todos)</option>
+                  {equipa.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.nome}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
             <label className="text-sm font-medium text-stone-700 dark:text-stone-300">
               {comPausa ? "Abre" : "Início"}
               <Input type="time" className="mt-2" value={horaInicio} onChange={(e) => setHoraInicio(e.target.value)} />

@@ -3,7 +3,7 @@
 import { Button } from "@gestor/ui";
 import type { ReservaEstado } from "@gestor/database";
 import { addDays, dateKey, generateMonthGrid, startOfWeek } from "@gestor/utils";
-import { ChevronLeft, ChevronRight, Clock, Phone, RefreshCw } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock, Phone, RefreshCw, User } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { definirEstadoReservaAction, getReservasIntervaloAction } from "../actions";
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
@@ -17,6 +17,7 @@ type ReservaView = {
   nomeCliente: string;
   telefoneCliente: string;
   servicoNome: string;
+  profissionalNome: string | null;
   estado: ReservaEstado;
 };
 
@@ -413,6 +414,12 @@ function ReservaRow({
         </div>
         <p className="mt-1 flex flex-wrap items-center gap-x-3 text-sm text-stone-500 dark:text-stone-400">
           <span>{reserva.servicoNome}</span>
+          {reserva.profissionalNome ? (
+            <span className="inline-flex items-center gap-1">
+              <User size={13} />
+              {reserva.profissionalNome}
+            </span>
+          ) : null}
           <span className="inline-flex items-center gap-1">
             <Phone size={13} />
             {reserva.telefoneCliente}

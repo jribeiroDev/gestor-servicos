@@ -50,6 +50,7 @@ export type Database = {
           dia_semana: number;
           hora_inicio: string;
           hora_fim: string;
+          profissional_id: string | null;
         };
         Insert: Partial<Database["public"]["Tables"]["horarios_funcionamento"]["Row"]> & {
           dia_semana: number;
@@ -85,6 +86,7 @@ export type Database = {
           telefone_cliente: string;
           estado: ReservaEstado;
           confirmado_pelo_cliente: boolean;
+          profissional_id: string | null;
           criado_em: string;
         };
         Insert: Partial<Database["public"]["Tables"]["reservas"]["Row"]> & {
@@ -101,6 +103,12 @@ export type Database = {
             foreignKeyName: "reservas_servico_id_fkey";
             columns: ["servico_id"];
             referencedRelation: "servicos";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "reservas_profissional_id_fkey";
+            columns: ["profissional_id"];
+            referencedRelation: "equipa";
             referencedColumns: ["id"];
           },
         ];

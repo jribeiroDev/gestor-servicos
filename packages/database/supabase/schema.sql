@@ -28,6 +28,7 @@ create table if not exists public.horarios_funcionamento (
   dia_semana smallint not null check (dia_semana between 0 and 6),
   hora_inicio time not null,
   hora_fim time not null,
+  profissional_id uuid references public.equipa(id) on delete cascade,
   check (hora_inicio < hora_fim)
 );
 
@@ -50,10 +51,15 @@ create table if not exists public.reservas (
   telefone_cliente text not null,
   estado reserva_estado not null default 'pendente',
   confirmado_pelo_cliente boolean not null default false,
+  profissional_id uuid references public.equipa(id) on delete set null,
   criado_em timestamptz not null default now(),
-  check (hora_inicio < hora_fim),
-  unique (servico_id, data, hora_inicio)
+  check (hora_inicio < hora_fim)
 );
+
+-- Um profissional não pode ter duas reservas no mesmo dia/hora.
+create unique index if not exists reservas_prof_slot_uk
+  on public.reservas (data, hora_inicio, profissional_id)
+  where profissional_id is not null;
 
 create table if not exists public.configuracoes_notificacao (
   id boolean primary key default true,

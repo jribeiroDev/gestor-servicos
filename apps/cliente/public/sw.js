@@ -4,7 +4,7 @@ self.addEventListener("push", (event) => {
     (async () => {
       await self.registration.showNotification(data.title || "Reserva", {
         body: data.body || "Tem novidades sobre a sua reserva.",
-        icon: "/icon.png",
+        icon: "/icon.jpg",
         data: data.url || "/",
       });
       // Avisa as páginas abertas para atualizarem os dados.

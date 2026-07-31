@@ -1,13 +1,14 @@
 import { dateKey } from "@gestor/utils";
-import { fetchBloqueios, fetchHorarios } from "../../../lib/admin-data";
+import { fetchBloqueios, fetchEquipa, fetchHorarios } from "../../../lib/admin-data";
 import { HorariosClient } from "./horarios-client";
 
 export const dynamic = "force-dynamic";
 
 export default async function HorariosPage() {
-  const [horarios, bloqueios] = await Promise.all([
+  const [horarios, bloqueios, equipa] = await Promise.all([
     fetchHorarios(),
     fetchBloqueios(dateKey(new Date())),
+    fetchEquipa(),
   ]);
 
   return (
@@ -17,6 +18,7 @@ export default async function HorariosPage() {
         diaSemana: h.dia_semana,
         horaInicio: h.hora_inicio.slice(0, 5),
         horaFim: h.hora_fim.slice(0, 5),
+        profissionalId: h.profissional_id,
       }))}
       bloqueios={bloqueios.map((b) => ({
         id: b.id,
@@ -24,6 +26,7 @@ export default async function HorariosPage() {
         dataFim: b.data_fim,
         motivo: b.motivo,
       }))}
+      equipa={equipa.map((m) => ({ id: m.id, nome: m.nome }))}
     />
   );
 }

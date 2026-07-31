@@ -2,188 +2,221 @@
 
 import { Button, Input, ThemeToggle } from "@gestor/ui";
 import type { Servico } from "@gestor/database";
+import { dateKey, generateMonthGrid, type Slot } from "@gestor/utils";
 import {
-  addDays,
-  dateKey,
-  generateMonthGrid,
-  startOfWeek,
-  type Slot,
-} from "@gestor/utils";
-import {
-  Ban,
-  CalendarDays,
+  ArrowLeft,
+  ArrowRight,
+  Calendar,
   Check,
   ChevronLeft,
   ChevronRight,
   Clock,
-  RefreshCw,
   Tag,
+  UserRound,
+  Users,
+  X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { criarReservaAction, getSlotsAction } from "./actions";
+import { criarReservaAction, getDiasDisponiveisAction, getSlotsAction } from "./actions";
+import type { MembroEquipaView } from "./lib/booking-data";
 import { NotificacoesButton } from "./notificacoes-button";
+import { PhoneInput } from "./phone-input";
 
-type Vista = "dia" | "semana" | "mes";
+type Passo = "profissional" | "dia" | "dados";
 
 const DIAS_CURTO_SEG = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 
 function formatarPreco(preco: number | null): string {
-  if (preco === null) {
-    return "—";
-  }
-  return new Intl.NumberFormat("pt-PT", {
-    style: "currency",
-    currency: "EUR",
-  }).format(preco);
+  if (preco === null) return "—";
+  return new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR" }).format(preco);
 }
 
-export function BookingClient({ servicos }: { servicos: Servico[] }) {
+function parseDia(dia: string): Date {
+  const [ano, mes, d] = dia.split("-").map(Number);
+  return new Date(ano, (mes ?? 1) - 1, d ?? 1);
+}
+
+function inicioMes(data: Date): Date {
+  return new Date(data.getFullYear(), data.getMonth(), 1);
+}
+
+function iniciais(nome: string): string {
+  return nome
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
+export function BookingClient({
+  servicos,
+  equipa,
+}: {
+  servicos: Servico[];
+  equipa: MembroEquipaView[];
+}) {
   const router = useRouter();
-  const [serviceId, setServiceId] = useState(servicos[0]?.id ?? "");
-  const [date, setDate] = useState(() => new Date());
-  const [vista, setVista] = useState<Vista>("dia");
-  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  // Wizard
+  const [aberto, setAberto] = useState(false);
+  const [passo, setPasso] = useState<Passo>("dia");
+  const [servicoId, setServicoId] = useState<string | null>(null);
+  const [profissionalId, setProfissionalId] = useState<string | null>(null);
+
+  // Calendário / horas
+  const [mesCursor, setMesCursor] = useState(() => inicioMes(new Date()));
+  const [diasDisponiveis, setDiasDisponiveis] = useState<string[]>([]);
+  const [loadingDias, setLoadingDias] = useState(false);
+  const [diaSel, setDiaSel] = useState<string | null>(null);
   const [slots, setSlots] = useState<Slot[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
+  const [slotSel, setSlotSel] = useState<string | null>(null);
+
+  // Dados
   const [nome, setNome] = useState("");
   const [telefone, setTelefone] = useState("");
   const [erro, setErro] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
 
-  const selectedService =
-    servicos.find((servico) => servico.id === serviceId) ?? servicos[0];
+  const servico = servicos.find((s) => s.id === servicoId) ?? null;
+  const membro = equipa.find((m) => m.id === profissionalId) ?? null;
+  const hojeKey = dateKey(new Date());
 
+  const abrir = (id: string) => {
+    setServicoId(id);
+    setProfissionalId(null);
+    setMesCursor(inicioMes(new Date()));
+    setDiaSel(null);
+    setSlots([]);
+    setSlotSel(null);
+    setNome("");
+    setTelefone("");
+    setErro(null);
+    setPasso(equipa.length > 0 ? "profissional" : "dia");
+    setAberto(true);
+  };
+
+  const fechar = () => setAberto(false);
+
+  const escolherProfissional = (id: string | null) => {
+    setProfissionalId(id);
+    setDiaSel(null);
+    setSlots([]);
+    setSlotSel(null);
+    setPasso("dia");
+  };
+
+  const voltar = () => {
+    if (passo === "dados") {
+      setPasso("dia");
+    } else if (passo === "dia" && equipa.length > 0) {
+      setPasso("profissional");
+    } else {
+      fechar();
+    }
+  };
+
+  // Dias disponíveis do mês visível.
   useEffect(() => {
-    if (!serviceId) {
+    if (!aberto || !servicoId) return;
+    let cancel = false;
+    setLoadingDias(true);
+    getDiasDisponiveisAction(servicoId, mesCursor.getFullYear(), mesCursor.getMonth(), profissionalId)
+      .then((d) => {
+        if (!cancel) setDiasDisponiveis(d);
+      })
+      .catch(() => {
+        if (!cancel) setDiasDisponiveis([]);
+      })
+      .finally(() => {
+        if (!cancel) setLoadingDias(false);
+      });
+    return () => {
+      cancel = true;
+    };
+  }, [aberto, servicoId, profissionalId, mesCursor]);
+
+  // Horas do dia escolhido (apenas as disponíveis).
+  useEffect(() => {
+    if (!diaSel || !servicoId) {
       setSlots([]);
       return;
     }
-    let cancelado = false;
+    let cancel = false;
     setLoadingSlots(true);
-    getSlotsAction(serviceId, dateKey(date))
-      .then((resultado) => {
-        if (!cancelado) {
-          setSlots(resultado);
-        }
+    setSlotSel(null);
+    getSlotsAction(servicoId, diaSel, profissionalId)
+      .then((s) => {
+        if (!cancel) setSlots(s.filter((x) => x.available));
       })
       .catch(() => {
-        if (!cancelado) {
-          setSlots([]);
-        }
+        if (!cancel) setSlots([]);
       })
       .finally(() => {
-        if (!cancelado) {
-          setLoadingSlots(false);
-        }
+        if (!cancel) setLoadingSlots(false);
       });
     return () => {
-      cancelado = true;
+      cancel = true;
     };
-  }, [serviceId, date]);
+  }, [diaSel, servicoId, profissionalId]);
 
-  const selecionarDia = (novaData: Date) => {
-    setDate(novaData);
-    setSelectedSlot(null);
-  };
-
-  const shift = (delta: number) => {
-    const next = new Date(date);
-    if (vista === "dia") {
-      next.setDate(date.getDate() + delta);
-    } else if (vista === "semana") {
-      next.setDate(date.getDate() + delta * 7);
-    } else {
-      next.setMonth(date.getMonth() + delta, 1);
+  const grupos = useMemo(() => {
+    const manha: Slot[] = [];
+    const tarde: Slot[] = [];
+    const noite: Slot[] = [];
+    for (const s of slots) {
+      if (s.startsAt < "12:00") manha.push(s);
+      else if (s.startsAt < "19:00") tarde.push(s);
+      else noite.push(s);
     }
-    selecionarDia(next);
-  };
-
-  const titulo = useMemo(() => {
-    if (vista === "dia") {
-      return date.toLocaleDateString("pt-PT", {
-        weekday: "long",
-        day: "2-digit",
-        month: "long",
-      });
-    }
-    if (vista === "semana") {
-      const inicio = startOfWeek(date);
-      const fim = addDays(inicio, 6);
-      const fmtInicio = inicio.toLocaleDateString("pt-PT", {
-        day: "2-digit",
-        month: "short",
-      });
-      const fmtFim = fim.toLocaleDateString("pt-PT", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      });
-      return `${fmtInicio} – ${fmtFim}`;
-    }
-    return date.toLocaleDateString("pt-PT", { month: "long", year: "numeric" });
-  }, [date, vista]);
-
-  const diasSemana = useMemo(() => {
-    const inicio = startOfWeek(date);
-    return Array.from({ length: 7 }, (_, i) => addDays(inicio, i));
-  }, [date]);
-
-  // Motivos dos bloqueios que afetam o dia, com o intervalo de horas coberto.
-  const motivosBloqueio = useMemo(() => {
-    const mapa = new Map<string, { inicio: string; fim: string }>();
-    for (const slot of slots) {
-      if (!slot.blockedReason) {
-        continue;
-      }
-      const atual = mapa.get(slot.blockedReason);
-      if (!atual) {
-        mapa.set(slot.blockedReason, {
-          inicio: slot.startsAt,
-          fim: slot.endsAt,
-        });
-      } else {
-        if (slot.startsAt < atual.inicio) atual.inicio = slot.startsAt;
-        if (slot.endsAt > atual.fim) atual.fim = slot.endsAt;
-      }
-    }
-    return [...mapa.entries()].map(([motivo, { inicio, fim }]) => ({
-      motivo,
-      horas: `${inicio}–${fim}`,
-    }));
+    return { manha, tarde, noite };
   }, [slots]);
 
-  const grelhaMes = useMemo(() => generateMonthGrid(date), [date]);
-  const hojeKey = dateKey(new Date());
-  const diaSelecionadoKey = dateKey(date);
+  const grelha = useMemo(() => generateMonthGrid(mesCursor), [mesCursor]);
+  const podeRecuar = inicioMes(new Date()) < mesCursor;
 
-  const submeter = () => {
-    if (!selectedService || !selectedSlot) {
-      return;
-    }
+  const shiftMes = (delta: number) => {
+    const d = new Date(mesCursor);
+    d.setMonth(d.getMonth() + delta, 1);
+    setMesCursor(d);
+    setDiaSel(null);
+    setSlots([]);
+    setSlotSel(null);
+  };
+
+  const confirmar = () => {
+    if (!servicoId || !diaSel || !slotSel) return;
     setErro(null);
     startTransition(async () => {
-      const resultado = await criarReservaAction({
-        servicoId: selectedService.id,
-        dia: dateKey(date),
-        hora: selectedSlot,
+      const r = await criarReservaAction({
+        servicoId,
+        dia: diaSel,
+        hora: slotSel,
         nome,
         telefone,
+        profissionalId,
       });
-      if (resultado.ok) {
-        router.push(`/reserva/${resultado.token}?novo=1`);
+      if (r.ok) {
+        router.push(`/reserva/${r.token}?novo=1`);
       } else {
-        setErro(resultado.erro);
+        setErro(r.erro);
       }
     });
   };
 
+  const subtitulo =
+    passo === "profissional"
+      ? "Escolha o profissional"
+      : passo === "dia"
+        ? "Escolha um dia"
+        : "Os seus dados";
+
   if (servicos.length === 0) {
     return (
-      <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-6 px-5 py-10 md:px-8">
-        <h1 className="text-2xl font-semibold text-stone-950 dark:text-stone-100">
-          Agendamento online
-        </h1>
+      <main className="mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-6 px-5 py-10 md:px-8">
+        <h1 className="text-2xl font-semibold text-stone-950 dark:text-stone-100">Agendamento online</h1>
         <p className="rounded-lg border border-stone-200 bg-white p-6 text-stone-600 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-400">
           De momento não há serviços disponíveis para marcação.
         </p>
@@ -192,12 +225,10 @@ export function BookingClient({ servicos }: { servicos: Servico[] }) {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-8 px-5 py-6 md:px-8">
-      <header className="flex flex-col gap-4 border-b border-stone-200 pb-6 md:flex-row md:items-center md:justify-between dark:border-stone-800">
+    <main className="mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-8 px-5 py-6 md:px-8">
+      <header className="flex flex-col gap-4 border-b border-stone-200 pb-6 dark:border-stone-800 md:flex-row md:items-center md:justify-between">
         <div>
-          <p className="text-sm font-medium text-teal-700 dark:text-teal-400">
-            Agendamento online
-          </p>
+          <p className="text-sm font-medium text-teal-700 dark:text-teal-400">Agendamento online</p>
           <h1 className="mt-1 text-3xl font-semibold tracking-normal text-stone-950 dark:text-stone-100">
             Escolha o serviço
           </h1>
@@ -212,24 +243,17 @@ export function BookingClient({ servicos }: { servicos: Servico[] }) {
         {servicos.map((service) => (
           <button
             key={service.id}
-            onClick={() => {
-              setServiceId(service.id);
-              setSelectedSlot(null);
-            }}
-            className={`flex items-center gap-3 rounded-lg border bg-white p-3 text-left transition md:block md:p-5 dark:bg-stone-900 ${
-              service.id === serviceId
-                ? "border-teal-700 ring-2 ring-teal-100 dark:border-teal-500 dark:ring-teal-900/40"
-                : "border-stone-200 hover:border-stone-300 dark:border-stone-800 dark:hover:border-stone-600"
-            }`}
+            onClick={() => abrir(service.id)}
+            className="flex items-center gap-3 rounded-lg border border-stone-200 bg-white p-3 text-left transition hover:border-stone-300 hover:shadow-sm dark:border-stone-800 dark:bg-stone-900 dark:hover:border-stone-600 md:block md:p-5"
           >
-            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-teal-50 text-teal-800 md:mb-4 md:h-10 md:w-10 dark:bg-teal-950/50 dark:text-teal-300">
+            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-teal-50 text-teal-800 dark:bg-teal-950/50 dark:text-teal-300 md:mb-4 md:h-10 md:w-10">
               <Tag size={16} />
             </span>
             <div className="min-w-0 flex-1 md:block">
-              <h2 className="truncate text-base font-semibold text-stone-950 md:text-lg dark:text-stone-100">
+              <h2 className="truncate text-base font-semibold text-stone-950 dark:text-stone-100 md:text-lg">
                 {service.nome}
               </h2>
-              <p className="hidden text-sm leading-6 text-stone-600 md:mt-2 md:block md:min-h-12 dark:text-stone-400">
+              <p className="hidden text-sm leading-6 text-stone-600 dark:text-stone-400 md:mt-2 md:block md:min-h-12">
                 {service.descricao ?? ""}
               </p>
               <div className="mt-0.5 flex items-center gap-3 text-sm md:mt-5 md:justify-between">
@@ -237,272 +261,293 @@ export function BookingClient({ servicos }: { servicos: Servico[] }) {
                   <Clock size={14} />
                   {service.duracao_minutos} min
                 </span>
-                <strong className="text-stone-950 dark:text-stone-100">
-                  {formatarPreco(service.preco)}
-                </strong>
+                <strong className="text-stone-950 dark:text-stone-100">{formatarPreco(service.preco)}</strong>
               </div>
             </div>
           </button>
         ))}
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-        <div className="rounded-lg border border-stone-200 bg-white p-5 dark:border-stone-800 dark:bg-stone-900">
-          <div className="mb-4 flex justify-end">
-            <div className="inline-flex rounded-md border border-stone-300 p-0.5 text-xs dark:border-stone-700">
-              {(["dia", "semana", "mes"] as const).map((v) => (
-                <button
-                  key={v}
-                  type="button"
-                  onClick={() => setVista(v)}
-                  className={`rounded px-2.5 py-1 capitalize transition ${
-                    vista === v
-                      ? "bg-stone-900 text-white dark:bg-white dark:text-stone-950"
-                      : "text-stone-600 hover:bg-stone-100 dark:text-stone-400 dark:hover:bg-stone-800"
-                  }`}
-                >
-                  {v === "mes" ? "Mês" : v}
-                </button>
-              ))}
-            </div>
-          </div>
+      {aberto && servico ? (
+        <div className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/40 sm:items-center sm:p-4">
+          <div className="flex h-full w-full max-w-lg flex-col overflow-hidden bg-white dark:bg-stone-900 sm:h-auto sm:max-h-[92vh] sm:rounded-2xl sm:border sm:border-stone-200 sm:dark:border-stone-800">
+            {/* Cabeçalho */}
+            <header className="flex items-center gap-2 border-b border-stone-200 px-3 py-3 dark:border-stone-800">
+              <button
+                type="button"
+                onClick={voltar}
+                aria-label="Voltar"
+                className="rounded-md p-2 text-stone-600 transition hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800"
+              >
+                <ArrowLeft size={20} />
+              </button>
+              <div className="flex-1 text-center">
+                <h2 className="text-lg font-semibold text-stone-950 dark:text-stone-100">Nova Marcação</h2>
+                <p className="text-sm text-stone-500 dark:text-stone-400">{subtitulo}</p>
+              </div>
+              <button
+                type="button"
+                onClick={fechar}
+                aria-label="Fechar"
+                className="rounded-md p-2 text-stone-500 transition hover:bg-stone-100 dark:text-stone-400 dark:hover:bg-stone-800"
+              >
+                <X size={20} />
+              </button>
+            </header>
 
-          <div className="mb-5 flex items-center justify-between">
-            <button
-              aria-label="Anterior"
-              onClick={() => shift(-1)}
-              className="rounded-md border border-stone-300 p-2 dark:border-stone-700"
-            >
-              <ChevronLeft size={18} />
-            </button>
-            <div className="text-center">
-              <p className="flex items-center justify-center gap-1.5 text-sm text-stone-500 dark:text-stone-400">
-                {vista === "dia"
-                  ? "Data"
-                  : vista === "semana"
-                    ? "Semana"
-                    : "Mês"}
-                {vista === "dia" && loadingSlots && slots.length > 0 ? (
-                  <RefreshCw
-                    size={12}
-                    className="animate-spin text-stone-400 dark:text-stone-500"
-                  />
-                ) : null}
-              </p>
-              <h2 className="text-xl font-semibold capitalize text-stone-950 dark:text-stone-100">
-                {titulo}
-              </h2>
+            {/* Serviço escolhido (contexto) */}
+            <div className="flex items-center gap-2 border-b border-stone-100 px-4 py-2.5 text-sm dark:border-stone-800">
+              <Tag size={14} className="text-teal-700 dark:text-teal-400" />
+              <span className="font-medium text-stone-800 dark:text-stone-200">{servico.nome}</span>
+              <span className="text-stone-400 dark:text-stone-500">·</span>
+              <span className="text-stone-500 dark:text-stone-400">{servico.duracao_minutos} min</span>
             </div>
-            <button
-              aria-label="Seguinte"
-              onClick={() => shift(1)}
-              className="rounded-md border border-stone-300 p-2 dark:border-stone-700"
-            >
-              <ChevronRight size={18} />
-            </button>
-          </div>
 
-          {vista === "semana" ? (
-            <div className="mb-5 grid grid-cols-7 gap-1.5">
-              {diasSemana.map((d) => {
-                const key = dateKey(d);
-                const selecionado = key === diaSelecionadoKey;
-                const ehHoje = key === hojeKey;
-                return (
+            <div className="flex-1 overflow-y-auto p-4">
+              {/* PASSO: PROFISSIONAL */}
+              {passo === "profissional" ? (
+                <div className="grid gap-2">
                   <button
-                    key={key}
-                    onClick={() => selecionarDia(d)}
-                    className={`flex flex-col items-center gap-0.5 rounded-md border py-2 text-xs transition ${
-                      selecionado
-                        ? "border-teal-700 bg-teal-700 text-white dark:border-teal-500 dark:bg-teal-600"
-                        : ehHoje
-                          ? "border-teal-200 bg-teal-50 text-teal-800 dark:border-teal-900/60 dark:bg-teal-950/50 dark:text-teal-300"
-                          : "border-stone-200 text-stone-700 hover:border-stone-300 dark:border-stone-800 dark:text-stone-300 dark:hover:border-stone-600"
-                    }`}
+                    type="button"
+                    onClick={() => escolherProfissional(null)}
+                    className="flex items-center gap-3 rounded-xl border border-stone-200 bg-white p-3 text-left transition hover:border-teal-600 dark:border-stone-800 dark:bg-stone-900 dark:hover:border-teal-500"
                   >
-                    <span className="uppercase">
-                      {DIAS_CURTO_SEG[(d.getDay() + 6) % 7]}
+                    <span className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-stone-100 text-stone-500 dark:bg-stone-800 dark:text-stone-300">
+                      <Users size={20} />
                     </span>
-                    <span className="text-sm font-semibold">{d.getDate()}</span>
-                  </button>
-                );
-              })}
-            </div>
-          ) : null}
-
-          {vista === "mes" ? (
-            <div className="mb-5 overflow-hidden rounded-md border border-stone-200 dark:border-stone-800">
-              <div className="grid grid-cols-7 border-b border-stone-200 bg-stone-50 text-center text-[11px] font-medium uppercase text-stone-400 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-500">
-                {DIAS_CURTO_SEG.map((label) => (
-                  <div key={label} className="py-1.5">
-                    {label}
-                  </div>
-                ))}
-              </div>
-              <div className="grid grid-cols-7">
-                {grelhaMes.map(({ date: d, inMonth }) => {
-                  const key = dateKey(d);
-                  const selecionado = key === diaSelecionadoKey;
-                  const ehHoje = key === hojeKey;
-                  return (
-                    <button
-                      key={key}
-                      onClick={() => selecionarDia(d)}
-                      className={`flex h-10 items-center justify-center border-b border-r border-stone-100 text-sm transition hover:bg-stone-50 dark:border-stone-800 dark:hover:bg-stone-800 ${
-                        inMonth
-                          ? "text-stone-800 dark:text-stone-300"
-                          : "text-stone-300 dark:text-stone-500"
-                      }`}
-                    >
-                      <span
-                        className={`flex h-7 w-7 items-center justify-center rounded-full ${
-                          selecionado
-                            ? "bg-teal-700 text-white dark:bg-teal-600"
-                            : ehHoje
-                              ? "bg-teal-50 text-teal-800 dark:bg-teal-950/50 dark:text-teal-300"
-                              : ""
-                        }`}
-                      >
-                        {d.getDate()}
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-medium text-stone-900 dark:text-stone-100">Sem preferência</span>
+                      <span className="block text-xs text-stone-500 dark:text-stone-400">
+                        Qualquer profissional disponível
                       </span>
+                    </span>
+                    <ChevronRight size={18} className="text-stone-400 dark:text-stone-500" />
+                  </button>
+
+                  {equipa.map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => escolherProfissional(m.id)}
+                      className="flex items-center gap-3 rounded-xl border border-stone-200 bg-white p-3 text-left transition hover:border-teal-600 dark:border-stone-800 dark:bg-stone-900 dark:hover:border-teal-500"
+                    >
+                      <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-stone-100 text-sm font-semibold text-stone-500 dark:bg-stone-800 dark:text-stone-300">
+                        {m.fotoUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={m.fotoUrl} alt={m.nome} className="h-full w-full object-cover" />
+                        ) : (
+                          iniciais(m.nome) || <UserRound size={20} />
+                        )}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate font-medium text-stone-900 dark:text-stone-100">
+                        {m.nome}
+                      </span>
+                      <ChevronRight size={18} className="text-stone-400 dark:text-stone-500" />
                     </button>
-                  );
-                })}
-              </div>
-            </div>
-          ) : null}
-
-          {vista !== "dia" ? (
-            <p className="mb-3 flex items-center gap-1.5 text-sm font-medium text-stone-700 dark:text-stone-300">
-              Horários para{" "}
-              <span className="capitalize">
-                {date.toLocaleDateString("pt-PT", {
-                  weekday: "long",
-                  day: "2-digit",
-                  month: "long",
-                })}
-              </span>
-              {loadingSlots && slots.length > 0 ? (
-                <RefreshCw
-                  size={13}
-                  className="animate-spin text-stone-400 dark:text-stone-500"
-                />
+                  ))}
+                </div>
               ) : null}
-            </p>
-          ) : null}
 
-          {motivosBloqueio.length > 0 ? (
-            <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 p-3 dark:border-amber-900/50 dark:bg-amber-950/40">
-              <p className="flex items-center gap-1.5 text-sm font-medium text-amber-900 dark:text-amber-300">
-                <Ban size={14} />
-                Períodos indisponíveis neste dia
-              </p>
-              <ul className="mt-1.5 grid gap-0.5 text-sm text-amber-800 dark:text-amber-300">
-                {motivosBloqueio.map(({ motivo, horas }) => (
-                  <li key={motivo}>
-                    <span className="font-medium">{horas}</span> — {motivo}
-                  </li>
-                ))}
-              </ul>
+              {/* PASSO: DIA + HORA */}
+              {passo === "dia" ? (
+                <div className="grid gap-4">
+                  {membro || profissionalId === null ? (
+                    <div className="flex items-center justify-center gap-2 text-xs text-stone-500 dark:text-stone-400">
+                      <UserRound size={13} />
+                      {membro ? membro.nome : "Sem preferência"}
+                    </div>
+                  ) : null}
+
+                  {/* Navegação de mês */}
+                  <div className="flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => shiftMes(-1)}
+                      disabled={!podeRecuar}
+                      aria-label="Mês anterior"
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-stone-200 text-stone-600 transition hover:bg-stone-100 disabled:opacity-30 dark:border-stone-700 dark:text-stone-300 dark:hover:bg-stone-800"
+                    >
+                      <ChevronLeft size={18} />
+                    </button>
+                    <span className="text-base font-semibold capitalize text-stone-900 dark:text-stone-100">
+                      {mesCursor.toLocaleDateString("pt-PT", { month: "long", year: "numeric" })}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => shiftMes(1)}
+                      aria-label="Mês seguinte"
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-stone-200 text-stone-600 transition hover:bg-stone-100 dark:border-stone-700 dark:text-stone-300 dark:hover:bg-stone-800"
+                    >
+                      <ChevronRight size={18} />
+                    </button>
+                  </div>
+
+                  {/* Grelha mensal */}
+                  <div>
+                    <div className="grid grid-cols-7 text-center text-xs font-medium uppercase tracking-wide text-stone-400 dark:text-stone-500">
+                      {DIAS_CURTO_SEG.map((d) => (
+                        <div key={d} className="py-1.5">
+                          {d}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-7 gap-y-1">
+                      {grelha.map(({ date, inMonth }) => {
+                        const key = dateKey(date);
+                        const disponivel = inMonth && diasDisponiveis.includes(key);
+                        const selecionado = key === diaSel;
+                        return (
+                          <div key={key} className="flex items-center justify-center py-0.5">
+                            <button
+                              type="button"
+                              disabled={!disponivel}
+                              onClick={() => setDiaSel(key)}
+                              className={`inline-flex h-10 w-10 items-center justify-center rounded-full text-sm transition ${
+                                selecionado
+                                  ? "bg-stone-900 font-semibold text-white dark:bg-white dark:text-stone-950"
+                                  : disponivel
+                                    ? "border border-stone-200 text-stone-800 hover:border-teal-600 dark:border-stone-700 dark:text-stone-200 dark:hover:border-teal-500"
+                                    : "text-stone-300 dark:text-stone-600"
+                              }`}
+                            >
+                              {date.getDate()}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Estado do mês / horas */}
+                  {!loadingDias && diasDisponiveis.length === 0 ? (
+                    <div className="rounded-xl border border-stone-200 bg-stone-50 p-5 text-center dark:border-stone-800 dark:bg-stone-800/40">
+                      <p className="text-sm font-medium text-stone-700 dark:text-stone-200">
+                        Não existem vagas para este mês.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => shiftMes(1)}
+                        className="mt-1 inline-flex items-center gap-1 text-sm font-medium text-teal-700 dark:text-teal-400"
+                      >
+                        Ver próximo mês
+                        <ArrowRight size={14} />
+                      </button>
+                    </div>
+                  ) : !diaSel ? (
+                    <p className="flex items-center justify-center gap-2 py-4 text-center text-sm text-stone-400 dark:text-stone-500">
+                      <Calendar size={15} />
+                      Escolha um dia para ver as horas.
+                    </p>
+                  ) : loadingSlots ? (
+                    <p className="py-4 text-center text-sm text-stone-400 dark:text-stone-500">A carregar horas…</p>
+                  ) : slots.length === 0 ? (
+                    <p className="py-4 text-center text-sm text-stone-500 dark:text-stone-400">
+                      Sem horas disponíveis neste dia.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-3 gap-2">
+                      <ColunaHoras titulo="Manhã" slots={grupos.manha} selecionado={slotSel} onSelecionar={setSlotSel} />
+                      <ColunaHoras titulo="Tarde" slots={grupos.tarde} selecionado={slotSel} onSelecionar={setSlotSel} />
+                      <ColunaHoras titulo="Noite" slots={grupos.noite} selecionado={slotSel} onSelecionar={setSlotSel} />
+                    </div>
+                  )}
+                </div>
+              ) : null}
+
+              {/* PASSO: DADOS */}
+              {passo === "dados" ? (
+                <div className="grid gap-4">
+                  <div className="grid gap-1.5 rounded-xl border border-stone-200 bg-stone-50 p-4 text-sm dark:border-stone-800 dark:bg-stone-800/40">
+                    <Resumo rotulo="Serviço" valor={servico.nome} />
+                    <Resumo rotulo="Profissional" valor={membro ? membro.nome : "Sem preferência"} />
+                    <Resumo
+                      rotulo="Dia"
+                      valor={diaSel ? parseDia(diaSel).toLocaleDateString("pt-PT", { weekday: "long", day: "2-digit", month: "long" }) : ""}
+                    />
+                    <Resumo rotulo="Hora" valor={slotSel ?? ""} />
+                  </div>
+
+                  <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
+                    Nome
+                    <Input className="mt-2" placeholder="O seu nome" value={nome} onChange={(e) => setNome(e.target.value)} />
+                  </label>
+                  <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
+                    Telemóvel
+                    <PhoneInput className="mt-2" onChange={setTelefone} />
+                  </label>
+
+                  {erro ? <p className="text-sm font-medium text-red-700 dark:text-red-400">{erro}</p> : null}
+                </div>
+              ) : null}
             </div>
-          ) : null}
 
-          {slots.length === 0 && loadingSlots ? (
-            <p className="py-8 text-center text-sm text-stone-500 dark:text-stone-400">
-              A carregar horários…
-            </p>
-          ) : slots.length === 0 ? (
-            <p className="py-8 text-center text-sm text-stone-500 dark:text-stone-400">
-              Sem horários disponíveis neste dia.
-            </p>
-          ) : (
-            <div
-              aria-busy={loadingSlots}
-              className={`grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 transition-opacity ${
-                loadingSlots ? "pointer-events-none opacity-40" : ""
-              }`}
-            >
-              {slots.map((slot) => (
-                <button
-                  key={slot.startsAt}
-                  disabled={!slot.available}
-                  onClick={() => setSelectedSlot(slot.startsAt)}
-                  title={
-                    slot.blockedReason
-                      ? `Indisponível: ${slot.blockedReason}`
-                      : !slot.available
-                        ? "Horário já reservado"
-                        : undefined
-                  }
-                  className={`inline-flex h-11 items-center justify-center gap-1.5 rounded-md border text-sm font-medium transition disabled:cursor-not-allowed ${
-                    selectedSlot === slot.startsAt
-                      ? "border-teal-700 bg-teal-700 text-white dark:border-teal-500 dark:bg-teal-600"
-                      : slot.blockedReason
-                        ? "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-300"
-                        : "border-stone-300 bg-white text-stone-800 disabled:bg-stone-100 disabled:text-stone-400 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-300 dark:disabled:bg-stone-800 dark:disabled:text-stone-600"
-                  }`}
+            {/* Rodapé */}
+            {passo === "dia" ? (
+              <footer className="border-t border-stone-200 p-3 dark:border-stone-800">
+                <Button type="button" className="w-full" disabled={!slotSel} onClick={() => setPasso("dados")}>
+                  Continuar
+                </Button>
+              </footer>
+            ) : null}
+            {passo === "dados" ? (
+              <footer className="border-t border-stone-200 p-3 dark:border-stone-800">
+                <Button
+                  type="button"
+                  className="w-full"
+                  disabled={pending || !nome.trim() || telefone.trim().length < 6}
+                  onClick={confirmar}
                 >
-                  {slot.blockedReason ? <Ban size={13} /> : null}
-                  {slot.startsAt}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <form
-          className="rounded-lg border border-stone-200 bg-white p-5 dark:border-stone-800 dark:bg-stone-900"
-          onSubmit={(event) => {
-            event.preventDefault();
-            submeter();
-          }}
-        >
-          <div className="mb-5 flex items-center gap-3">
-            <span className="inline-flex h-10 w-10 items-center justify-center rounded-md bg-stone-100 dark:bg-stone-800">
-              <CalendarDays size={18} />
-            </span>
-            <div>
-              <h2 className="font-semibold text-stone-950 dark:text-stone-100">
-                Dados da marcação
-              </h2>
-              <p className="text-sm text-stone-500 dark:text-stone-400">
-                {selectedService?.nome} · {selectedSlot ?? "Escolha uma hora"}
-              </p>
-            </div>
+                  <Check size={16} />
+                  {pending ? "A confirmar…" : "Confirmar reserva"}
+                </Button>
+              </footer>
+            ) : null}
           </div>
-          <label className="mb-4 block text-sm font-medium text-stone-700 dark:text-stone-300">
-            Nome
-            <Input
-              className="mt-2"
-              placeholder="O seu nome"
-              value={nome}
-              onChange={(event) => setNome(event.target.value)}
-            />
-          </label>
-          <label className="mb-5 block text-sm font-medium text-stone-700 dark:text-stone-300">
-            Telemóvel
-            <Input
-              className="mt-2"
-              placeholder="+351 900 000 000"
-              value={telefone}
-              onChange={(event) => setTelefone(event.target.value)}
-            />
-          </label>
-          {erro ? (
-            <p className="mb-4 text-sm font-medium text-red-700 dark:text-red-400">
-              {erro}
-            </p>
-          ) : null}
-          <Button
-            type="submit"
-            disabled={!selectedSlot || pending}
-            className="w-full"
-          >
-            <Check size={16} />
-            {pending ? "A confirmar…" : "Confirmar reserva"}
-          </Button>
-        </form>
-      </section>
+        </div>
+      ) : null}
     </main>
+  );
+}
+
+function ColunaHoras({
+  titulo,
+  slots,
+  selecionado,
+  onSelecionar,
+}: {
+  titulo: string;
+  slots: Slot[];
+  selecionado: string | null;
+  onSelecionar: (hora: string) => void;
+}) {
+  return (
+    <div className="grid content-start gap-2">
+      <p className="text-center text-xs font-medium uppercase tracking-wide text-stone-400 dark:text-stone-500">
+        {titulo}
+      </p>
+      {slots.map((s) => (
+        <button
+          key={s.startsAt}
+          type="button"
+          onClick={() => onSelecionar(s.startsAt)}
+          className={`inline-flex h-10 items-center justify-center rounded-full border text-sm font-medium transition ${
+            selecionado === s.startsAt
+              ? "border-teal-700 bg-teal-700 text-white dark:border-teal-500 dark:bg-teal-600"
+              : "border-stone-200 text-stone-800 hover:border-teal-600 dark:border-stone-700 dark:text-stone-200 dark:hover:border-teal-500"
+          }`}
+        >
+          {s.startsAt}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function Resumo({ rotulo, valor }: { rotulo: string; valor: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-stone-500 dark:text-stone-400">{rotulo}</span>
+      <span className="text-right font-medium capitalize text-stone-900 dark:text-stone-100">{valor}</span>
+    </div>
   );
 }

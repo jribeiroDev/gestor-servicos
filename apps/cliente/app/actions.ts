@@ -11,7 +11,11 @@ import {
   type ReservaEstado,
 } from "@gestor/database";
 import type { Slot } from "@gestor/utils";
-import { getSlotsDisponiveis } from "./lib/booking-data";
+import {
+  escolherProfissionalLivre,
+  getDiasDisponiveis,
+  getSlotsDisponiveis,
+} from "./lib/booking-data";
 import { enviarPush, notificarAdmins } from "./lib/push";
 
 /** Link para o painel admin (calendário), se configurado. */
@@ -62,11 +66,28 @@ export async function getReservaViewAction(token: string): Promise<ReservaView |
   };
 }
 
-export async function getSlotsAction(servicoId: string, dia: string): Promise<Slot[]> {
+export async function getSlotsAction(
+  servicoId: string,
+  dia: string,
+  profissionalId?: string | null,
+): Promise<Slot[]> {
   if (!servicoId || !dia) {
     return [];
   }
-  return getSlotsDisponiveis(servicoId, dia);
+  return getSlotsDisponiveis(servicoId, dia, profissionalId ?? undefined);
+}
+
+/** Dias com disponibilidade num mês (para o calendário). `mes` é 0-based. */
+export async function getDiasDisponiveisAction(
+  servicoId: string,
+  ano: number,
+  mes: number,
+  profissionalId?: string | null,
+): Promise<string[]> {
+  if (!servicoId) {
+    return [];
+  }
+  return getDiasDisponiveis(servicoId, ano, mes, profissionalId ?? undefined);
 }
 
 export type CriarReservaInput = {
@@ -75,6 +96,7 @@ export type CriarReservaInput = {
   hora: string;
   nome: string;
   telefone: string;
+  profissionalId?: string | null;
 };
 
 export type CriarReservaResult =
@@ -95,11 +117,22 @@ export async function criarReservaAction(input: CriarReservaInput): Promise<Cria
     return { ok: false, erro: "Indique um telemóvel válido." };
   }
 
-  // Reconfirma no servidor que o slot continua disponível.
-  const slots = await getSlotsDisponiveis(input.servicoId, input.dia);
-  const slot = slots.find((s) => s.startsAt === input.hora.slice(0, 5));
-  if (!slot || !slot.available) {
-    return { ok: false, erro: "Esse horário já não está disponível. Escolha outro." };
+  // Reconfirma no servidor e resolve o profissional a atribuir.
+  let profissionalId: string | null;
+  if (input.profissionalId) {
+    const slots = await getSlotsDisponiveis(input.servicoId, input.dia, input.profissionalId);
+    const slot = slots.find((s) => s.startsAt === input.hora.slice(0, 5));
+    if (!slot || !slot.available) {
+      return { ok: false, erro: "Esse horário já não está disponível. Escolha outro." };
+    }
+    profissionalId = input.profissionalId;
+  } else {
+    // Sem preferência: atribui a um profissional livre (ou null se não houver equipa).
+    const escolha = await escolherProfissionalLivre(input.servicoId, input.dia, input.hora);
+    if (!escolha.ok) {
+      return { ok: false, erro: "Esse horário já não está disponível. Escolha outro." };
+    }
+    profissionalId = escolha.profissionalId;
   }
 
   try {
@@ -109,6 +142,7 @@ export async function criarReservaAction(input: CriarReservaInput): Promise<Cria
       horaInicio: input.hora,
       nomeCliente: nome,
       telefoneCliente: telefone,
+      profissionalId,
     });
     // Avisa o negócio de que entrou uma reserva nova.
     await notificarAdmins({

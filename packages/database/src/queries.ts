@@ -56,6 +56,17 @@ export async function createMembroEquipa(
   return unwrap(await client.from("equipa").insert(input).select().single());
 }
 
+export async function listEquipaAtiva(client: TypedSupabaseClient): Promise<MembroEquipa[]> {
+  return unwrap(
+    await client
+      .from("equipa")
+      .select("*")
+      .eq("ativo", true)
+      .order("ordem", { ascending: true })
+      .order("nome", { ascending: true }),
+  );
+}
+
 export async function deleteMembroEquipa(client: TypedSupabaseClient, id: string): Promise<void> {
   const { error } = await client.from("equipa").delete().eq("id", id);
   if (error) {
@@ -113,7 +124,7 @@ export function toOpeningWindows(horarios: HorarioFuncionamento[]): OpeningWindo
 
 export async function criarHorario(
   client: TypedSupabaseClient,
-  input: { dia_semana: number; hora_inicio: string; hora_fim: string },
+  input: { dia_semana: number; hora_inicio: string; hora_fim: string; profissional_id?: string | null },
 ): Promise<HorarioFuncionamento> {
   return unwrap(await client.from("horarios_funcionamento").insert(input).select().single());
 }
@@ -253,6 +264,7 @@ export type CriarReservaInput = {
   horaInicio: string;
   nomeCliente: string;
   telefoneCliente: string;
+  profissionalId?: string | null;
 };
 
 /** Cria uma reserva calculando hora_fim a partir da duração do serviço. */
@@ -269,6 +281,7 @@ export async function criarReserva(
     hora_fim: addMinutes(horaInicio, servico.duracao_minutos),
     nome_cliente: input.nomeCliente.trim(),
     telefone_cliente: input.telefoneCliente.trim(),
+    profissional_id: input.profissionalId ?? null,
   };
   return unwrap(await client.from("reservas").insert(payload).select().single());
 }

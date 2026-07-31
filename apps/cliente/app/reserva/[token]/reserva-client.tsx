@@ -37,10 +37,12 @@ const ESTADO_LABEL: Record<ReservaEstado, string> = {
 };
 
 const ESTADO_CLASSE: Record<ReservaEstado, string> = {
-  pendente: "bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300",
+  pendente:
+    "bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300",
   confirmada: "bg-teal-50 text-teal-800 dark:bg-teal-950/50 dark:text-teal-300",
   cancelada: "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300",
-  concluida: "bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-300",
+  concluida:
+    "bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-300",
   no_show: "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300",
 };
 
@@ -57,7 +59,13 @@ function formatarData(dia: string): string {
   });
 }
 
-export function ReservaClient({ reserva: reservaInicial, novo }: { reserva: ReservaView; novo: boolean }) {
+export function ReservaClient({
+  reserva: reservaInicial,
+  novo,
+}: {
+  reserva: ReservaView;
+  novo: boolean;
+}) {
   const [reserva, setReserva] = useState(reservaInicial);
   const [aSincronizar, setASincronizar] = useState(false);
   const [copiado, setCopiado] = useState(false);
@@ -73,7 +81,8 @@ export function ReservaClient({ reserva: reservaInicial, novo }: { reserva: Rese
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [novoSlot, setNovoSlot] = useState<string | null>(null);
 
-  const ativa = reserva.estado === "pendente" || reserva.estado === "confirmada";
+  const ativa =
+    reserva.estado === "pendente" || reserva.estado === "confirmada";
   const tokenRef = useRef(reserva.token);
 
   // Só no cliente — evita divergência entre servidor e browser na hidratação.
@@ -103,7 +112,9 @@ export function ReservaClient({ reserva: reservaInicial, novo }: { reserva: Rese
   // e por polling leve enquanto a página está visível — sem router.refresh().
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
-      if ((event.data as { type?: string } | null)?.type === "reserva-atualizada") {
+      if (
+        (event.data as { type?: string } | null)?.type === "reserva-atualizada"
+      ) {
         void sincronizar();
       }
     };
@@ -112,7 +123,8 @@ export function ReservaClient({ reserva: reservaInicial, novo }: { reserva: Rese
         void sincronizar();
       }
     };
-    const sw = typeof navigator !== "undefined" ? navigator.serviceWorker : undefined;
+    const sw =
+      typeof navigator !== "undefined" ? navigator.serviceWorker : undefined;
     sw?.addEventListener("message", onMessage);
     document.addEventListener("visibilitychange", onVisivel);
     const intervalo = setInterval(() => void sincronizar(), 15000);
@@ -209,7 +221,9 @@ export function ReservaClient({ reserva: reservaInicial, novo }: { reserva: Rese
     }
 
     linkInput.current?.select();
-    setAvisoCopia("O link está selecionado — use Ctrl+C (ou toque longo → Copiar).");
+    setAvisoCopia(
+      "O link está selecionado — use Ctrl+C (ou toque longo → Copiar).",
+    );
   };
 
   return (
@@ -227,7 +241,7 @@ export function ReservaClient({ reserva: reservaInicial, novo }: { reserva: Rese
 
       {novo ? (
         <div className="rounded-lg border border-teal-200 bg-teal-50 p-4 text-sm font-medium text-teal-800 dark:border-teal-900/60 dark:bg-teal-950/50 dark:text-teal-300">
-          Reserva criada com sucesso! Guarde este link para gerir a sua marcação.
+          Reserva criada com sucesso!
         </div>
       ) : null}
 
@@ -235,21 +249,34 @@ export function ReservaClient({ reserva: reservaInicial, novo }: { reserva: Rese
         <div className="flex items-center justify-between">
           <p className="flex items-center gap-1.5 text-sm font-medium text-teal-700 dark:text-teal-400">
             Reserva
-            {aSincronizar ? <RefreshCw size={12} className="animate-spin text-teal-400 dark:text-teal-500" /> : null}
+            {aSincronizar ? (
+              <RefreshCw
+                size={12}
+                className="animate-spin text-teal-400 dark:text-teal-500"
+              />
+            ) : null}
           </p>
-          <span className={`rounded-md px-2 py-1 text-xs font-medium ${ESTADO_CLASSE[reserva.estado]}`}>
+          <span
+            className={`rounded-md px-2 py-1 text-xs font-medium ${ESTADO_CLASSE[reserva.estado]}`}
+          >
             {ESTADO_LABEL[reserva.estado]}
           </span>
         </div>
-        <h1 className="mt-2 text-2xl font-semibold text-stone-950 dark:text-stone-100">{reserva.servicoNome}</h1>
+        <h1 className="mt-2 text-2xl font-semibold text-stone-950 dark:text-stone-100">
+          {reserva.servicoNome}
+        </h1>
         <dl className="mt-4 grid gap-2 text-sm">
           <div className="flex justify-between">
             <dt className="text-stone-500 dark:text-stone-400">Cliente</dt>
-            <dd className="font-medium text-stone-800 dark:text-stone-300">{reserva.nomeCliente}</dd>
+            <dd className="font-medium text-stone-800 dark:text-stone-300">
+              {reserva.nomeCliente}
+            </dd>
           </div>
           <div className="flex justify-between">
             <dt className="text-stone-500 dark:text-stone-400">Data</dt>
-            <dd className="font-medium capitalize text-stone-800 dark:text-stone-300">{formatarData(reserva.data)}</dd>
+            <dd className="font-medium capitalize text-stone-800 dark:text-stone-300">
+              {formatarData(reserva.data)}
+            </dd>
           </div>
           <div className="flex justify-between">
             <dt className="text-stone-500 dark:text-stone-400">Hora</dt>
@@ -259,12 +286,22 @@ export function ReservaClient({ reserva: reservaInicial, novo }: { reserva: Rese
           </div>
         </dl>
 
-        {erro ? <p className="mt-4 text-sm font-medium text-red-700 dark:text-red-400">{erro}</p> : null}
+        {erro ? (
+          <p className="mt-4 text-sm font-medium text-red-700 dark:text-red-400">
+            {erro}
+          </p>
+        ) : null}
 
         {ativa ? (
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">
             {reserva.estado === "pendente" && !reserva.confirmadoPeloCliente ? (
-              <Button type="button" disabled={pending} onClick={() => executar(() => confirmarReservaAction(reserva.token))}>
+              <Button
+                type="button"
+                disabled={pending}
+                onClick={() =>
+                  executar(() => confirmarReservaAction(reserva.token))
+                }
+              >
                 <Check size={16} />
                 Confirmar reserva
               </Button>
@@ -291,18 +328,22 @@ export function ReservaClient({ reserva: reservaInicial, novo }: { reserva: Rese
               type="button"
               variant="danger"
               disabled={pending}
-              onClick={() => executar(() => cancelarReservaAction(reserva.token))}
+              onClick={() =>
+                executar(() => cancelarReservaAction(reserva.token))
+              }
             >
               <CalendarX size={16} />
               Cancelar
             </Button>
           </div>
         ) : (
-          <p className="mt-6 text-sm text-stone-500 dark:text-stone-400">Esta reserva já não pode ser alterada.</p>
+          <p className="mt-6 text-sm text-stone-500 dark:text-stone-400">
+            Esta reserva já não pode ser alterada.
+          </p>
         )}
 
         <div className="mt-6 border-t border-stone-200 pt-4 dark:border-stone-800">
-          <p className="mb-2 flex items-center gap-1.5 text-sm text-stone-500 dark:text-stone-400">
+          <p className="mb-2 flex items-center gap-1.5 text-sm text-stone-500  dark:text-teal-300">
             <Link2 size={14} />
             Link desta reserva — guarde-o para voltar mais tarde
           </p>
@@ -325,12 +366,18 @@ export function ReservaClient({ reserva: reservaInicial, novo }: { reserva: Rese
               {copiado ? "Copiado!" : "Copiar"}
             </Button>
           </div>
-          {avisoCopia ? <p className="mt-2 text-xs text-stone-500 dark:text-stone-400">{avisoCopia}</p> : null}
+          {avisoCopia ? (
+            <p className="mt-2 text-xs text-stone-500 dark:text-stone-400">
+              {avisoCopia}
+            </p>
+          ) : null}
         </div>
 
         {ativa ? (
           <div className="mt-6 border-t border-stone-200 pt-4 dark:border-stone-800">
-            <p className="mb-3 text-sm text-stone-500 dark:text-stone-400">Quer ser avisado sobre alterações a esta reserva?</p>
+            <p className="mb-3 text-sm text-stone-600 dark:text-stone-300">
+              Quer ser avisado sobre alterações a esta reserva?
+            </p>
             <NotificacoesButton token={reserva.token} />
           </div>
         ) : null}
@@ -339,24 +386,42 @@ export function ReservaClient({ reserva: reservaInicial, novo }: { reserva: Rese
       {aReagendar && ativa ? (
         <section className="rounded-lg border border-stone-200 bg-white p-6 dark:border-stone-800 dark:bg-stone-900">
           <div className="mb-5 flex items-center justify-between">
-            <button aria-label="Dia anterior" onClick={() => shiftDay(-1)} className="rounded-md border border-stone-300 p-2 dark:border-stone-700">
+            <button
+              aria-label="Dia anterior"
+              onClick={() => shiftDay(-1)}
+              className="rounded-md border border-stone-300 p-2 dark:border-stone-700"
+            >
               <ChevronLeft size={18} />
             </button>
             <div className="text-center">
-              <p className="text-sm text-stone-500 dark:text-stone-400">Novo dia</p>
+              <p className="text-sm text-stone-500 dark:text-stone-400">
+                Novo dia
+              </p>
               <h2 className="text-lg font-semibold capitalize text-stone-950 dark:text-stone-100">
-                {date.toLocaleDateString("pt-PT", { weekday: "long", day: "2-digit", month: "long" })}
+                {date.toLocaleDateString("pt-PT", {
+                  weekday: "long",
+                  day: "2-digit",
+                  month: "long",
+                })}
               </h2>
             </div>
-            <button aria-label="Dia seguinte" onClick={() => shiftDay(1)} className="rounded-md border border-stone-300 p-2 dark:border-stone-700">
+            <button
+              aria-label="Dia seguinte"
+              onClick={() => shiftDay(1)}
+              className="rounded-md border border-stone-300 p-2 dark:border-stone-700"
+            >
               <ChevronRight size={18} />
             </button>
           </div>
 
           {slots.length === 0 && loadingSlots ? (
-            <p className="py-6 text-center text-sm text-stone-500 dark:text-stone-400">A carregar horários…</p>
+            <p className="py-6 text-center text-sm text-stone-500 dark:text-stone-400">
+              A carregar horários…
+            </p>
           ) : slots.length === 0 ? (
-            <p className="py-6 text-center text-sm text-stone-500 dark:text-stone-400">Sem horários disponíveis neste dia.</p>
+            <p className="py-6 text-center text-sm text-stone-500 dark:text-stone-400">
+              Sem horários disponíveis neste dia.
+            </p>
           ) : (
             <div
               aria-busy={loadingSlots}
@@ -397,7 +462,13 @@ export function ReservaClient({ reserva: reservaInicial, novo }: { reserva: Rese
             className="mt-5 w-full"
             onClick={() => {
               if (novoSlot) {
-                executar(() => reagendarReservaAction(reserva.token, dateKey(date), novoSlot));
+                executar(() =>
+                  reagendarReservaAction(
+                    reserva.token,
+                    dateKey(date),
+                    novoSlot,
+                  ),
+                );
               }
             }}
           >

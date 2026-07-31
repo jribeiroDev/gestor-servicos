@@ -1,12 +1,12 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "Admin · Reservas",
+  title: "Admin",
   description: "Painel de gestao de agendamentos",
   manifest: "/manifest.webmanifest",
   icons: {
-    icon: [{ url: "/icon-192.png", sizes: "192x192", type: "image/png" }],
-    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+    icon: [{ url: "/icon.jpg", sizes: "192x192", type: "image/png" }],
+    apple: [{ url: "/icon.jpg", sizes: "180x180", type: "image/png" }],
   },
 };
 
@@ -16,7 +16,9 @@ export const viewport = {
 
 const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem('tema');var d=t?t==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches;var r=document.documentElement;r.classList.toggle('dark',d);r.style.colorScheme=d?'dark':'light';}catch(e){}})();`;
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default function RootLayout({
+  children,
+}: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="pt" suppressHydrationWarning>
       <head>

@@ -23,6 +23,7 @@ import { requireUser } from "../lib/auth";
 import {
   fetchDashboard,
   fetchReservasIntervalo,
+  getNomesEquipa,
   mapReservaAgenda,
   type DashboardData,
   type ReservaAgendaView,
@@ -36,8 +37,8 @@ export async function getDashboardAction(dia: string): Promise<DashboardData> {
 
 export async function getReservasIntervaloAction(from: string, to: string): Promise<ReservaAgendaView[]> {
   await requireUser();
-  const reservas = await fetchReservasIntervalo(from, to);
-  return reservas.map(mapReservaAgenda);
+  const [reservas, nomes] = await Promise.all([fetchReservasIntervalo(from, to), getNomesEquipa()]);
+  return reservas.map((r) => mapReservaAgenda(r, nomes));
 }
 
 export type ActionResult = { ok: true } | { ok: false; erro: string };
@@ -212,7 +213,7 @@ export async function definirEstadoReservaAction(
 /* ----------------------------------------------------- Horários / Bloqueios */
 
 export async function criarHorariosAction(
-  janelas: { diaSemana: number; horaInicio: string; horaFim: string }[],
+  janelas: { diaSemana: number; horaInicio: string; horaFim: string; profissionalId?: string | null }[],
 ): Promise<ActionResult> {
   await requireUser();
   if (janelas.length === 0) {
@@ -240,6 +241,7 @@ export async function criarHorariosAction(
         dia_semana: janela.diaSemana,
         hora_inicio: janela.horaInicio,
         hora_fim: janela.horaFim,
+        profissional_id: janela.profissionalId ?? null,
       });
     }
     revalidatePath("/horarios");
