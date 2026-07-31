@@ -2,7 +2,11 @@
 
 import { Bell, BellOff, BellRing } from "lucide-react";
 import { useEffect, useState } from "react";
-import { guardarSubscricaoAction, removerSubscricaoAction } from "./actions";
+import {
+  associarSubscricaoTokenAction,
+  guardarSubscricaoAction,
+  removerSubscricaoAction,
+} from "./actions";
 
 type Estado = "indisponivel" | "sem-config" | "inativo" | "a-processar" | "ativo" | "erro";
 
@@ -42,6 +46,11 @@ export function NotificacoesButton({ token }: { token?: string }) {
         if (!cancelado) {
           setEstado(subscricao ? "ativo" : "inativo");
         }
+        // Garante que uma subscrição já existente fica ligada a ESTA reserva,
+        // senão os avisos de mudança de estado nunca a encontram.
+        if (subscricao && token) {
+          await associarSubscricaoTokenAction(subscricao.endpoint, token);
+        }
       } catch {
         if (!cancelado) setEstado("inativo");
       }
@@ -49,7 +58,7 @@ export function NotificacoesButton({ token }: { token?: string }) {
     return () => {
       cancelado = true;
     };
-  }, []);
+  }, [token]);
 
   const ativar = async () => {
     setEstado("a-processar");

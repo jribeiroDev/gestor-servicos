@@ -213,6 +213,35 @@ export async function guardarSubscricaoAction(
   }
 }
 
+/**
+ * Liga uma subscrição já existente (por endpoint) a ESTA reserva.
+ * Chamado ao abrir a página da reserva quando as notificações já estão ativas
+ * — garante que os avisos de mudança de estado chegam a este browser, mesmo
+ * que a subscrição tenha sido criada antes (ex.: na página principal, sem token).
+ */
+export async function associarSubscricaoTokenAction(
+  endpoint: string,
+  token: string,
+): Promise<GuardarSubscricaoResult> {
+  try {
+    if (!endpoint || !token) {
+      return { ok: false, erro: "Faltam dados." };
+    }
+    const { error } = await createServiceRoleClient()
+      .from("push_subscriptions")
+      .update({ token_acesso: token, tipo: "cliente" })
+      .eq("endpoint", endpoint);
+    if (error) {
+      console.error("[push] associar token falhou:", error.message);
+      return { ok: false, erro: error.message };
+    }
+    return { ok: true };
+  } catch (erro) {
+    console.error("[push] associarSubscricaoTokenAction exceção:", (erro as Error).message);
+    return { ok: false, erro: (erro as Error).message };
+  }
+}
+
 export async function removerSubscricaoAction(endpoint: string): Promise<GuardarSubscricaoResult> {
   try {
     if (!endpoint) {
