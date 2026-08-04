@@ -1,5 +1,11 @@
 import { dateKey } from "@gestor/utils";
-import { fetchReservasIntervalo, getNomesEquipa, mapReservaAgenda } from "../../../lib/admin-data";
+import {
+  fetchEquipa,
+  fetchReservasIntervalo,
+  fetchServicos,
+  getNomesEquipa,
+  mapReservaAgenda,
+} from "../../../lib/admin-data";
 import { calcularIntervalo, type Vista } from "../calendar-range";
 import { CalendarioClient } from "../calendario-client";
 
@@ -15,13 +21,22 @@ export default async function AgendaPage({
   const vista: Vista = v === "semana" || v === "mes" ? v : "dia";
 
   const { from, to } = calcularIntervalo(dia, vista);
-  const [reservas, nomes] = await Promise.all([fetchReservasIntervalo(from, to), getNomesEquipa()]);
+  const [reservas, nomes, servicos, equipa] = await Promise.all([
+    fetchReservasIntervalo(from, to),
+    getNomesEquipa(),
+    fetchServicos().catch(() => []),
+    fetchEquipa().catch(() => []),
+  ]);
 
   return (
     <CalendarioClient
       diaInicial={dia}
       vistaInicial={vista}
       reservasIniciais={reservas.map((r) => mapReservaAgenda(r, nomes))}
+      servicos={servicos
+        .filter((s) => s.ativo)
+        .map((s) => ({ id: s.id, nome: s.nome, duracaoMinutos: s.duracao_minutos }))}
+      equipa={equipa.map((m) => ({ id: m.id, nome: m.nome }))}
     />
   );
 }

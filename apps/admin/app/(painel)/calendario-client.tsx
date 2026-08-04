@@ -1,11 +1,15 @@
 "use client";
 
-import { Button } from "@gestor/ui";
+import { Button, Input } from "@gestor/ui";
 import type { ReservaEstado } from "@gestor/database";
 import { addDays, dateKey, generateMonthGrid, startOfWeek } from "@gestor/utils";
-import { ChevronLeft, ChevronRight, Clock, Phone, RefreshCw, User } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock, Phone, Plus, RefreshCw, User, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { definirEstadoReservaAction, getReservasIntervaloAction } from "../actions";
+import {
+  criarMarcacaoAdminAction,
+  definirEstadoReservaAction,
+  getReservasIntervaloAction,
+} from "../actions";
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
 import { calcularIntervalo, parseDia, type Vista } from "./calendar-range";
 
@@ -20,6 +24,9 @@ type ReservaView = {
   profissionalNome: string | null;
   estado: ReservaEstado;
 };
+
+type ServicoOpcao = { id: string; nome: string; duracaoMinutos: number };
+type EquipaOpcao = { id: string; nome: string };
 
 const ESTADO_LABEL: Record<ReservaEstado, string> = {
   pendente: "Pendente",
@@ -76,14 +83,19 @@ export function CalendarioClient({
   diaInicial,
   vistaInicial,
   reservasIniciais,
+  servicos,
+  equipa,
 }: {
   diaInicial: string;
   vistaInicial: Vista;
   reservasIniciais: ReservaView[];
+  servicos: ServicoOpcao[];
+  equipa: EquipaOpcao[];
 }) {
   const [dia, setDia] = useState(diaInicial);
   const [vista, setVista] = useState<Vista>(vistaInicial);
   const [reservas, setReservas] = useState<ReservaView[]>(reservasIniciais);
+  const [novaAberta, setNovaAberta] = useState(false);
   // Dia escolhido dentro da grelha mensal (não muda de vista nem refaz a busca:
   // as reservas do mês inteiro já estão carregadas).
   const [diaFocado, setDiaFocado] = useState<string | null>(null);
@@ -297,6 +309,11 @@ export function CalendarioClient({
                 <RefreshCw size={15} className={pending || carregando ? "animate-spin" : ""} />
                 <span className="hidden sm:inline">Atualizar</span>
               </button>
+              <Button type="button" onClick={() => setNovaAberta(true)} disabled={servicos.length === 0}>
+                <Plus size={16} />
+                <span className="hidden sm:inline">Nova marcação</span>
+                <span className="sm:hidden">Nova</span>
+              </Button>
             </div>
           </div>
         </div>
@@ -386,7 +403,176 @@ export function CalendarioClient({
           </>
         ) : null}
       </div>
+
+      {novaAberta ? (
+        <NovaMarcacaoDialog
+          diaInicial={diaAtivo}
+          servicos={servicos}
+          equipa={equipa}
+          onFechar={() => setNovaAberta(false)}
+          onCriada={(diaCriado) => {
+            setNovaAberta(false);
+            // Salta para o dia da marcação criada e recarrega a agenda.
+            irPara(diaCriado, vista);
+          }}
+        />
+      ) : null}
     </section>
+  );
+}
+
+function NovaMarcacaoDialog({
+  diaInicial,
+  servicos,
+  equipa,
+  onFechar,
+  onCriada,
+}: {
+  diaInicial: string;
+  servicos: ServicoOpcao[];
+  equipa: EquipaOpcao[];
+  onFechar: () => void;
+  onCriada: (dia: string) => void;
+}) {
+  const [servicoId, setServicoId] = useState(servicos[0]?.id ?? "");
+  const [profissionalId, setProfissionalId] = useState("");
+  const [dia, setDia] = useState(diaInicial);
+  const [hora, setHora] = useState("09:00");
+  const [nome, setNome] = useState("");
+  const [telefone, setTelefone] = useState("");
+  const [erro, setErro] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  const selectClasse =
+    "h-10 w-full rounded-md border border-stone-300 bg-white px-3 text-sm text-stone-900 outline-none transition focus:border-teal-700 focus:ring-2 focus:ring-teal-100 dark:border-stone-700 dark:bg-stone-950 dark:text-stone-100 dark:focus:border-teal-500 dark:focus:ring-teal-900/40";
+
+  const submeter = () => {
+    setErro(null);
+    startTransition(async () => {
+      const resultado = await criarMarcacaoAdminAction({
+        servicoId,
+        dia,
+        hora,
+        nome,
+        telefone,
+        profissionalId: profissionalId || null,
+      });
+      if (resultado.ok) {
+        onCriada(dia);
+      } else {
+        setErro(resultado.erro);
+      }
+    });
+  };
+
+  const podeSubmeter = Boolean(servicoId && dia && hora && nome.trim().length >= 2);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/40 sm:items-center sm:p-4">
+      <div className="flex h-full w-full max-w-md flex-col overflow-hidden bg-white dark:bg-stone-900 sm:h-auto sm:max-h-[92vh] sm:rounded-2xl sm:border sm:border-stone-200 sm:dark:border-stone-800">
+        <header className="flex items-center justify-between border-b border-stone-200 px-4 py-3 dark:border-stone-800">
+          <h2 className="text-lg font-semibold text-stone-950 dark:text-stone-100">Nova marcação</h2>
+          <button
+            type="button"
+            onClick={onFechar}
+            aria-label="Fechar"
+            className="rounded-md p-2 text-stone-500 transition hover:bg-stone-100 dark:text-stone-400 dark:hover:bg-stone-800"
+          >
+            <X size={20} />
+          </button>
+        </header>
+
+        <div className="grid flex-1 gap-4 overflow-y-auto p-4">
+          <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
+            Serviço
+            <select
+              className={`mt-2 ${selectClasse}`}
+              value={servicoId}
+              onChange={(e) => setServicoId(e.target.value)}
+            >
+              {servicos.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.nome} · {s.duracaoMinutos} min
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {equipa.length > 0 ? (
+            <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
+              Profissional
+              <select
+                className={`mt-2 ${selectClasse}`}
+                value={profissionalId}
+                onChange={(e) => setProfissionalId(e.target.value)}
+              >
+                <option value="">Sem preferência</option>
+                {equipa.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.nome}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
+              Dia
+              <Input
+                type="date"
+                className="mt-2"
+                value={dia}
+                onChange={(e) => setDia(e.target.value)}
+              />
+            </label>
+            <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
+              Hora
+              <Input
+                type="time"
+                className="mt-2"
+                value={hora}
+                onChange={(e) => setHora(e.target.value)}
+              />
+            </label>
+          </div>
+
+          <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
+            Nome do cliente
+            <Input
+              className="mt-2"
+              placeholder="Nome"
+              value={nome}
+              onChange={(e) => setNome(e.target.value)}
+            />
+          </label>
+
+          <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
+            Telemóvel <span className="font-normal text-stone-400">(opcional)</span>
+            <Input
+              type="tel"
+              className="mt-2"
+              placeholder="Telemóvel"
+              value={telefone}
+              onChange={(e) => setTelefone(e.target.value)}
+            />
+          </label>
+
+          {erro ? (
+            <p className="text-sm font-medium text-red-700 dark:text-red-400">{erro}</p>
+          ) : null}
+        </div>
+
+        <footer className="flex justify-end gap-2 border-t border-stone-200 p-3 dark:border-stone-800">
+          <Button type="button" variant="secondary" onClick={onFechar} disabled={pending}>
+            Cancelar
+          </Button>
+          <Button type="button" onClick={submeter} disabled={pending || !podeSubmeter}>
+            {pending ? "A criar…" : "Criar marcação"}
+          </Button>
+        </footer>
+      </div>
+    </div>
   );
 }
 

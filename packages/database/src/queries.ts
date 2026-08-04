@@ -284,6 +284,8 @@ export type CriarReservaInput = {
   nomeCliente: string;
   telefoneCliente: string;
   profissionalId?: string | null;
+  /** Estado inicial. Omitido → usa o valor por omissão da BD (pendente). */
+  estado?: ReservaEstado;
 };
 
 /** Cria uma reserva calculando hora_fim a partir da duração do serviço. */
@@ -301,6 +303,7 @@ export async function criarReserva(
     nome_cliente: input.nomeCliente.trim(),
     telefone_cliente: input.telefoneCliente.trim(),
     profissional_id: input.profissionalId ?? null,
+    ...(input.estado ? { estado: input.estado } : {}),
   };
   return unwrap(await client.from("reservas").insert(payload).select().single());
 }

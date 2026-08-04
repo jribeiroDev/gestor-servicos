@@ -9,10 +9,14 @@ import {
   createMembroEquipa,
   criarBloqueio,
   criarHorario,
+  criarReserva,
   createServico,
   createServiceRoleClient,
   deleteMembroEquipa,
   deleteServico,
+  getServico,
+  listEquipaAtiva,
+  listReservasAtivasPorData,
   updateConfigNotificacao,
   updateServico,
   type ConfiguracaoNotificacao,
@@ -20,6 +24,7 @@ import {
   type ServicoInsert,
   type ServicoUpdate,
 } from "@gestor/database";
+import { addMinutes } from "@gestor/utils";
 import { requireUser } from "../lib/auth";
 import {
   fetchDashboard,
@@ -186,6 +191,93 @@ const ESTADO_MENSAGEM: Partial<Record<ReservaEstado, { title: string; body: stri
   concluida: { title: "Reserva concluída", body: "Obrigado pela sua visita!" },
   no_show: { title: "Falta registada", body: "A sua reserva foi marcada como não comparência." },
 };
+
+export type CriarMarcacaoInput = {
+  servicoId: string;
+  dia: string;
+  hora: string;
+  nome: string;
+  telefone: string;
+  profissionalId?: string | null;
+};
+
+/** Dois intervalos [ini, fim) sobrepõem-se? (horas "HH:MM" comparam-se bem lexicograficamente). */
+function seSobrepoem(aIni: string, aFim: string, bIni: string, bFim: string): boolean {
+  return aIni < bFim && bIni < aFim;
+}
+
+/**
+ * Cria uma marcação a partir do painel (agenda). Ao contrário do cliente, o
+ * admin escolhe a hora livremente (encaixes, walk-ins), mas continua a haver
+ * guarda contra sobreposições: um profissional não pode ter duas marcações à
+ * mesma hora; em "sem preferência" é atribuído um profissional livre. A reserva
+ * fica logo "confirmada" (é o negócio a agendá-la) para aparecer na agenda.
+ */
+export async function criarMarcacaoAdminAction(input: CriarMarcacaoInput): Promise<ActionResult> {
+  await requireUser();
+  const nome = input.nome?.trim() ?? "";
+  const telefone = input.telefone?.trim() ?? "";
+  const inicio = input.hora?.slice(0, 5) ?? "";
+
+  if (!input.servicoId || !input.dia || !inicio) {
+    return { ok: false, erro: "Escolha o serviço, o dia e a hora." };
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.dia) || !/^\d{2}:\d{2}$/.test(inicio)) {
+    return { ok: false, erro: "Data ou hora inválida." };
+  }
+  if (nome.length < 2) {
+    return { ok: false, erro: "Indique o nome do cliente." };
+  }
+
+  try {
+    const client = createServiceRoleClient();
+    const [servico, reservasDia, equipa] = await Promise.all([
+      getServico(client, input.servicoId),
+      listReservasAtivasPorData(client, input.dia),
+      listEquipaAtiva(client).catch(() => []),
+    ]);
+
+    const fim = addMinutes(inicio, servico.duracao_minutos);
+    const colididas = reservasDia.filter((r) =>
+      seSobrepoem(inicio, fim, r.hora_inicio.slice(0, 5), r.hora_fim.slice(0, 5)),
+    );
+
+    let profissionalId: string | null = input.profissionalId ?? null;
+    if (profissionalId) {
+      // Profissional específico: não pode ter marcação sobreposta.
+      if (colididas.some((r) => (r.profissional_id ?? null) === profissionalId)) {
+        return { ok: false, erro: "Esse profissional já tem uma marcação a essa hora." };
+      }
+    } else if (equipa.length > 0) {
+      // Sem preferência: atribui um profissional livre nessa hora.
+      const ocupados = new Set(colididas.map((r) => r.profissional_id).filter(Boolean));
+      const livre = equipa.find((m) => !ocupados.has(m.id));
+      if (!livre) {
+        return { ok: false, erro: "Não há profissionais livres a essa hora. Escolha outra." };
+      }
+      profissionalId = livre.id;
+    } else if (colididas.length > 0) {
+      // Sem equipa (cadeira única): qualquer sobreposição é conflito.
+      return { ok: false, erro: "Já existe uma marcação a essa hora." };
+    }
+
+    await criarReserva(client, {
+      servicoId: input.servicoId,
+      data: input.dia,
+      horaInicio: inicio,
+      nomeCliente: nome,
+      telefoneCliente: telefone,
+      profissionalId,
+      estado: "confirmada",
+    });
+    revalidatePath("/");
+    revalidatePath("/agenda");
+    return { ok: true };
+  } catch (erro) {
+    console.error("[agenda] criarMarcacaoAdmin falhou:", (erro as Error).message);
+    return { ok: false, erro: "Não foi possível criar a marcação." };
+  }
+}
 
 export async function definirEstadoReservaAction(
   id: string,
