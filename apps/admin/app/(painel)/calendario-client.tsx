@@ -9,6 +9,7 @@ import {
   criarMarcacaoAdminAction,
   definirEstadoReservaAction,
   getReservasIntervaloAction,
+  getSlotsMarcacaoAction,
 } from "../actions";
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
 import { calcularIntervalo, parseDia, type Vista } from "./calendar-range";
@@ -437,14 +438,44 @@ function NovaMarcacaoDialog({
   const [servicoId, setServicoId] = useState(servicos[0]?.id ?? "");
   const [profissionalId, setProfissionalId] = useState("");
   const [dia, setDia] = useState(diaInicial);
-  const [hora, setHora] = useState("09:00");
+  const [hora, setHora] = useState("");
   const [nome, setNome] = useState("");
   const [telefone, setTelefone] = useState("");
   const [erro, setErro] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
+  const [horas, setHoras] = useState<string[]>([]);
+  const [loadingHoras, setLoadingHoras] = useState(false);
+
   const selectClasse =
     "h-10 w-full rounded-md border border-stone-300 bg-white px-3 text-sm text-stone-900 outline-none transition focus:border-teal-700 focus:ring-2 focus:ring-teal-100 dark:border-stone-700 dark:bg-stone-950 dark:text-stone-100 dark:focus:border-teal-500 dark:focus:ring-teal-900/40";
+
+  // Horas disponíveis para o serviço/dia/profissional escolhidos. Respeita os
+  // horários de funcionamento de cada barbeiro, reservas e bloqueios.
+  useEffect(() => {
+    if (!servicoId || !dia) {
+      setHoras([]);
+      return;
+    }
+    let cancel = false;
+    setLoadingHoras(true);
+    getSlotsMarcacaoAction(servicoId, dia, profissionalId || null)
+      .then((livres) => {
+        if (cancel) return;
+        setHoras(livres);
+        // Se a hora escolhida deixou de estar disponível, limpa a seleção.
+        setHora((atual) => (atual && livres.includes(atual) ? atual : ""));
+      })
+      .catch(() => {
+        if (!cancel) setHoras([]);
+      })
+      .finally(() => {
+        if (!cancel) setLoadingHoras(false);
+      });
+    return () => {
+      cancel = true;
+    };
+  }, [servicoId, dia, profissionalId]);
 
   const submeter = () => {
     setErro(null);
@@ -516,25 +547,44 @@ function NovaMarcacaoDialog({
             </label>
           ) : null}
 
-          <div className="grid grid-cols-2 gap-3">
-            <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
-              Dia
-              <Input
-                type="date"
-                className="mt-2"
-                value={dia}
-                onChange={(e) => setDia(e.target.value)}
-              />
-            </label>
-            <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
-              Hora
-              <Input
-                type="time"
-                className="mt-2"
-                value={hora}
-                onChange={(e) => setHora(e.target.value)}
-              />
-            </label>
+          <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
+            Dia
+            <Input
+              type="date"
+              className="mt-2"
+              value={dia}
+              onChange={(e) => setDia(e.target.value)}
+            />
+          </label>
+
+          <div>
+            <span className="block text-sm font-medium text-stone-700 dark:text-stone-300">
+              Hora disponível
+            </span>
+            {loadingHoras ? (
+              <p className="mt-2 text-sm text-stone-400 dark:text-stone-500">A carregar horas…</p>
+            ) : horas.length === 0 ? (
+              <p className="mt-2 rounded-md border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm text-stone-500 dark:border-stone-800 dark:bg-stone-800/40 dark:text-stone-400">
+                Sem horas disponíveis para este dia/profissional.
+              </p>
+            ) : (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {horas.map((h) => (
+                  <button
+                    key={h}
+                    type="button"
+                    onClick={() => setHora(h)}
+                    className={`inline-flex h-9 min-w-[4rem] items-center justify-center rounded-full border px-3 text-sm font-medium transition ${
+                      hora === h
+                        ? "border-teal-700 bg-teal-700 text-white dark:border-teal-500 dark:bg-teal-600"
+                        : "border-stone-300 text-stone-800 hover:border-teal-600 dark:border-stone-700 dark:text-stone-200 dark:hover:border-teal-500"
+                    }`}
+                  >
+                    {h}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">

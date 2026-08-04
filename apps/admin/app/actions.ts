@@ -15,6 +15,7 @@ import {
   deleteMembroEquipa,
   deleteServico,
   getServico,
+  getSlotsDisponiveis,
   listEquipaAtiva,
   listReservasAtivasPorData,
   updateConfigNotificacao,
@@ -191,6 +192,34 @@ const ESTADO_MENSAGEM: Partial<Record<ReservaEstado, { title: string; body: stri
   concluida: { title: "Reserva concluída", body: "Obrigado pela sua visita!" },
   no_show: { title: "Falta registada", body: "A sua reserva foi marcada como não comparência." },
 };
+
+/**
+ * Horas livres de um serviço num dia, para o profissional escolhido (ou a união
+ * da equipa quando "sem preferência"). Mesma lógica de disponibilidade do
+ * cliente — respeita horários de funcionamento, reservas e bloqueios.
+ */
+export async function getSlotsMarcacaoAction(
+  servicoId: string,
+  dia: string,
+  profissionalId?: string | null,
+): Promise<string[]> {
+  await requireUser();
+  if (!servicoId || !dia) {
+    return [];
+  }
+  try {
+    const slots = await getSlotsDisponiveis(
+      createServiceRoleClient(),
+      servicoId,
+      dia,
+      profissionalId ?? undefined,
+    );
+    return slots.filter((s) => s.available).map((s) => s.startsAt);
+  } catch (erro) {
+    console.error("[agenda] getSlotsMarcacao falhou:", (erro as Error).message);
+    return [];
+  }
+}
 
 export type CriarMarcacaoInput = {
   servicoId: string;

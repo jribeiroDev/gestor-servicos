@@ -23,3 +23,9 @@ export type {
 } from "./types";
 
 export * from "./queries";
+
+export {
+  getSlotsDisponiveis,
+  getDiasDisponiveis,
+  escolherProfissionalLivre,
+} from "./availability";
