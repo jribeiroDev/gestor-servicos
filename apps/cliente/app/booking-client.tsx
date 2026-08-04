@@ -17,9 +17,17 @@ import {
   X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import {
   criarReservaAction,
+  getBookingDataAction,
   getDiasDisponiveisAction,
   getSlotsAction,
 } from "./actions";
@@ -58,14 +66,23 @@ function iniciais(nome: string): string {
 }
 
 export function BookingClient({
-  servicos,
-  equipa,
+  servicos: servicosIniciais,
+  equipa: equipaIniciais,
+  erroInicial = false,
 }: {
   servicos: Servico[];
   equipa: MembroEquipaView[];
+  erroInicial?: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+
+  // Dados carregados no servidor, mantidos em estado para poderem ser
+  // re-buscados no cliente (ver efeitos de visibilidade mais abaixo).
+  const [servicos, setServicos] = useState(servicosIniciais);
+  const [equipa, setEquipa] = useState(equipaIniciais);
+  const [erroCarregar, setErroCarregar] = useState(erroInicial);
+  const [recarregando, setRecarregando] = useState(false);
 
   // Wizard
   const [aberto, setAberto] = useState(false);
@@ -90,6 +107,56 @@ export function BookingClient({
   const servico = servicos.find((s) => s.id === servicoId) ?? null;
   const membro = equipa.find((m) => m.id === profissionalId) ?? null;
   const hojeKey = dateKey(new Date());
+
+  const recarregar = useCallback(async () => {
+    setRecarregando(true);
+    try {
+      const d = await getBookingDataAction();
+      setServicos(d.servicos);
+      setEquipa(d.equipa);
+      setErroCarregar(d.erro && d.servicos.length === 0);
+    } catch {
+      // Mantém o estado atual; nova tentativa na próxima visibilidade.
+    } finally {
+      setRecarregando(false);
+    }
+  }, []);
+
+  // Só vale a pena re-buscar quando não há dados úteis no ecrã.
+  const precisaRecarregar = erroCarregar || servicos.length === 0;
+  const precisaRef = useRef(precisaRecarregar);
+  precisaRef.current = precisaRecarregar;
+
+  // Auto-recuperação do estado "vazio" preso: quando a app volta a ficar
+  // visível ou é restaurada do bfcache (PWA suspensa), volta a buscar os
+  // dados. Elimina o sintoma de "só com F5 é que aparece".
+  useEffect(() => {
+    const aoFicarVisivel = () => {
+      if (precisaRef.current && document.visibilityState === "visible") {
+        void recarregar();
+      }
+    };
+    const aoRestaurar = (e: PageTransitionEvent) => {
+      if (e.persisted && precisaRef.current) {
+        void recarregar();
+      }
+    };
+    document.addEventListener("visibilitychange", aoFicarVisivel);
+    window.addEventListener("pageshow", aoRestaurar);
+    return () => {
+      document.removeEventListener("visibilitychange", aoFicarVisivel);
+      window.removeEventListener("pageshow", aoRestaurar);
+    };
+  }, [recarregar]);
+
+  // Se a carga no servidor falhou, tenta de imediato no cliente.
+  useEffect(() => {
+    if (erroInicial) {
+      void recarregar();
+    }
+    // Só na montagem.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const abrir = (id: string) => {
     setServicoId(id);
@@ -219,9 +286,25 @@ export function BookingClient({
         <h1 className="text-2xl font-semibold text-stone-950 dark:text-stone-100">
           Agendamento online
         </h1>
-        <p className="rounded-lg border border-stone-200 bg-white p-6 text-stone-600 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-400">
-          De momento não há serviços disponíveis para marcação.
-        </p>
+        {erroCarregar ? (
+          <div className="flex flex-col items-start gap-3 rounded-lg border border-stone-200 bg-white p-6 dark:border-stone-800 dark:bg-stone-900">
+            <p className="text-stone-600 dark:text-stone-400">
+              Não foi possível carregar os serviços. Verifique a ligação e tente
+              novamente.
+            </p>
+            <Button
+              type="button"
+              onClick={() => void recarregar()}
+              disabled={recarregando}
+            >
+              {recarregando ? "A recarregar…" : "Recarregar"}
+            </Button>
+          </div>
+        ) : (
+          <p className="rounded-lg border border-stone-200 bg-white p-6 text-stone-600 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-400">
+            De momento não há serviços disponíveis para marcação.
+          </p>
+        )}
       </main>
     );
   }

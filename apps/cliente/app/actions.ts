@@ -12,9 +12,11 @@ import {
 } from "@gestor/database";
 import type { Slot } from "@gestor/utils";
 import {
+  carregarBookingData,
   escolherProfissionalLivre,
   getDiasDisponiveis,
   getSlotsDisponiveis,
+  type BookingData,
 } from "./lib/booking-data";
 import { enviarPush, notificarAdmins } from "./lib/push";
 
@@ -64,6 +66,11 @@ export async function getReservaViewAction(token: string): Promise<ReservaView |
     estado: reserva.estado,
     confirmadoPeloCliente: reserva.confirmado_pelo_cliente,
   };
+}
+
+/** Serviços + equipa (para o cliente re-carregar sem F5 ao voltar a ficar ativo). */
+export async function getBookingDataAction(): Promise<BookingData> {
+  return carregarBookingData();
 }
 
 export async function getSlotsAction(

@@ -37,6 +37,42 @@ export async function getEquipaAtiva(): Promise<MembroEquipaView[]> {
   return membros.map((m) => ({ id: m.id, nome: m.nome, fotoUrl: m.foto_url }));
 }
 
+export type BookingData = {
+  servicos: Servico[];
+  equipa: MembroEquipaView[];
+  erro: boolean;
+};
+
+/**
+ * Carrega serviços + equipa de forma INDEPENDENTE: uma query falhar não apaga
+ * o resultado da outra (antes, um `Promise.all` fazia uma falha na equipa
+ * esvaziar também os serviços). `erro` fica `true` se alguma falhou — assim o
+ * cliente pode oferecer recarregar em vez de mostrar o enganador "sem serviços".
+ * Nunca lança: os erros são registados e refletidos em `erro`.
+ */
+export async function carregarBookingData(): Promise<BookingData> {
+  const [rServ, rEquipa] = await Promise.allSettled([getServicosAtivos(), getEquipaAtiva()]);
+
+  let erro = false;
+  let servicos: Servico[] = [];
+  let equipa: MembroEquipaView[] = [];
+
+  if (rServ.status === "fulfilled") {
+    servicos = rServ.value;
+  } else {
+    erro = true;
+    console.error("[booking] falha a carregar serviços:", rServ.reason);
+  }
+  if (rEquipa.status === "fulfilled") {
+    equipa = rEquipa.value;
+  } else {
+    erro = true;
+    console.error("[booking] falha a carregar equipa:", rEquipa.reason);
+  }
+
+  return { servicos, equipa, erro };
+}
+
 /* ------------------------------------------------------ Núcleo de slots */
 
 type ReservaSlot = { profissional_id: string | null; hora_inicio: string; hora_fim: string };
